@@ -9,7 +9,8 @@ import {
   Trash2, 
   Star,
   PlayCircle,
-  X
+  X,
+  Check
 } from 'lucide-react';
 import { Exercise, Category } from '../types';
 
@@ -49,13 +50,13 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
 
   const filteredExercises = exercises.filter(ex => 
     ex.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    ex.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ex.categories.some(c => c.toLowerCase().includes(searchTerm.toLowerCase())) ||
     ex.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const groups = categories.map(cat => ({
     category: cat,
-    items: filteredExercises.filter(ex => ex.category === cat.name)
+    items: filteredExercises.filter(ex => ex.categories.includes(cat.name))
   })).filter(g => g.items.length > 0 || searchTerm === '');
 
   return (
@@ -65,23 +66,43 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
           <h2 className="text-2xl font-bold text-gray-800">Exercise Library</h2>
           <p className="text-gray-500">View and manage your entire exercise catalog</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search exercises..." 
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-64"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search exercises..." 
+                className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-64"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button 
+              onClick={() => { setEditingEx(null); setShowAddForm(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md transition-all whitespace-nowrap"
+            >
+              <Plus size={20} /> Add New
+            </button>
           </div>
-          <button 
-            onClick={() => { setEditingEx(null); setShowAddForm(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md transition-all whitespace-nowrap"
-          >
-            <Plus size={20} /> Add New
-          </button>
+          {searchTerm.trim().length > 0 && (
+            <button
+              onClick={() => {
+                setEditingEx({
+                  id: 0,
+                  title: searchTerm,
+                  description: '',
+                  categories: [],
+                  videoUrl: '',
+                  rating: 0
+                });
+                setShowAddForm(true);
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2 border-2 border-dashed border-blue-200 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 transition-all"
+            >
+              <Plus size={14} /> Create New: "{searchTerm}"
+            </button>
+          )}
         </div>
       </div>
 
@@ -89,7 +110,7 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-6 border-b">
-              <h3 className="text-xl font-bold text-gray-800">{editingEx ? 'Edit Exercise' : 'Create Exercise'}</h3>
+              <h3 className="text-xl font-bold text-gray-800">{editingEx && editingEx.id !== 0 ? 'Edit Exercise' : 'Create Exercise'}</h3>
               <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
             </div>
             <div className="p-6 space-y-4">
@@ -97,7 +118,7 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
                 initialData={editingEx || undefined} 
                 categories={categories} 
                 onSave={(data) => {
-                  if (editingEx) {
+                  if (editingEx && editingEx.id !== 0) {
                     setExercises(prev => prev.map(ex => ex.id === editingEx.id ? { ...ex, ...data } as Exercise : ex));
                   } else {
                     setExercises(prev => [...prev, { ...data, id: Date.now() } as Exercise]);
@@ -146,9 +167,21 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
                       className={`group p-4 bg-gray-50 rounded-xl border border-transparent hover:border-blue-200 hover:bg-blue-50/30 transition-all ${ex.videoUrl ? 'cursor-pointer' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-gray-800 text-sm">{ex.title}</h4>
-                          {ex.videoUrl && <PlayCircle size={14} className="text-blue-500" />}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-gray-800 text-sm">{ex.title}</h4>
+                            {ex.videoUrl && <PlayCircle size={14} className="text-blue-500" />}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {ex.categories.map(c => {
+                              const cInfo = categories.find(ci => ci.name === c);
+                              return (
+                                <span key={c} className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider text-white ${cInfo?.color || 'bg-gray-400'}`}>
+                                  {c}
+                                </span>
+                              );
+                            })}
+                          </div>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button onClick={(e) => { e.stopPropagation(); handleEdit(ex); }} className="p-1 text-gray-400 hover:text-blue-600"><Edit2 size={14} /></button>
@@ -191,10 +224,18 @@ const ExerciseForm: React.FC<{
   const [formData, setFormData] = useState<Partial<Exercise>>(initialData || {
     title: '',
     description: '',
-    category: categories[0]?.name || 'Mobility',
+    categories: [],
     videoUrl: '',
     rating: 0
   });
+
+  const toggleCategory = (catName: string) => {
+    const current = formData.categories || [];
+    const updated = current.includes(catName)
+      ? current.filter(c => c !== catName)
+      : [...current, catName];
+    setFormData({ ...formData, categories: updated });
+  };
 
   return (
     <div className="space-y-4">
@@ -208,32 +249,42 @@ const ExerciseForm: React.FC<{
           placeholder="e.g. Chin Tuck"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Category</label>
-          <select 
-            value={formData.category} 
-            onChange={e => setFormData({ ...formData, category: e.target.value })}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-          >
-            {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Rating</label>
-          <div className="flex items-center h-full pt-1">
-            {[1,2,3,4,5].map(r => (
+      
+      <div>
+        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Categories</label>
+        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1 border rounded-xl border-gray-100">
+          {categories.map(c => {
+            const isSelected = formData.categories?.includes(c.name);
+            return (
               <button 
-                key={r} 
-                onClick={() => setFormData({ ...formData, rating: r })}
-                className={`p-1 ${r <= (formData.rating || 0) ? 'text-yellow-400' : 'text-gray-200'}`}
+                key={c.name}
+                onClick={() => toggleCategory(c.name)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-500 border-gray-100 hover:border-blue-200'}`}
               >
-                <Star size={20} fill={r <= (formData.rating || 0) ? 'currentColor' : 'none'} />
+                <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : c.color}`} />
+                {c.name}
+                {isSelected && <Check size={10} />}
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
+
+      <div className="flex justify-between items-center">
+        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest">Rating</label>
+        <div className="flex items-center">
+          {[1,2,3,4,5].map(r => (
+            <button 
+              key={r} 
+              onClick={() => setFormData({ ...formData, rating: r })}
+              className={`p-1 ${r <= (formData.rating || 0) ? 'text-yellow-400' : 'text-gray-200'}`}
+            >
+              <Star size={20} fill={r <= (formData.rating || 0) ? 'currentColor' : 'none'} />
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div>
         <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Description</label>
         <textarea 
@@ -259,7 +310,7 @@ const ExerciseForm: React.FC<{
           onClick={() => onSave(formData)}
           className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md"
         >
-          {initialData ? 'Update Exercise' : 'Save Exercise'}
+          {initialData && initialData.id !== 0 ? 'Update Exercise' : 'Save Exercise'}
         </button>
         <button 
           onClick={onCancel}

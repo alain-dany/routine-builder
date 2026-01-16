@@ -10,7 +10,7 @@ export interface Exercise {
   id: number;
   title: string;
   description: string;
-  category: string;
+  categories: string[]; // Changed from category: string
   videoUrl: string;
   rating: number;
 }

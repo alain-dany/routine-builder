@@ -8,7 +8,8 @@ import {
   X,
   Star,
   GripVertical,
-  PlayCircle
+  PlayCircle,
+  Check
 } from 'lucide-react';
 import { Exercise, Category } from '../types';
 
@@ -23,8 +24,7 @@ const getYoutubeEmbedUrl = (url: string) => {
   const match = url.match(regExp);
   const id = (match && match[2].length === 11) ? match[2] : null;
   if (!id) return null;
-  const origin = window.location.origin;
-  return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&origin=${encodeURIComponent(origin)}&enablejsapi=1`;
+  return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&enablejsapi=1`;
 };
 
 const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }) => {
@@ -36,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
   const [formData, setFormData] = useState<Partial<Exercise>>({
     title: '',
     description: '',
-    category: categories[0]?.name || 'Mobility',
+    categories: [],
     videoUrl: '',
     rating: 0
   });
@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
     setFormData({
       title: '',
       description: '',
-      category: categories[0]?.name || 'Mobility',
+      categories: [],
       videoUrl: '',
       rating: 0
     });
@@ -56,18 +56,19 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
   const handleSave = () => {
     if (!formData.title?.trim()) return;
     
+    const finalData: Exercise = {
+      id: editingId || Date.now(),
+      title: formData.title || '',
+      description: formData.description || '',
+      categories: formData.categories || [],
+      videoUrl: formData.videoUrl || '',
+      rating: formData.rating || 0,
+    };
+
     if (editingId) {
-      setExercises(prev => prev.map(ex => ex.id === editingId ? { ...ex, ...formData } as Exercise : ex));
+      setExercises(prev => prev.map(ex => ex.id === editingId ? finalData : ex));
     } else {
-      const newEx: Exercise = {
-        id: Date.now(),
-        title: formData.title || '',
-        description: formData.description || '',
-        category: formData.category || categories[0]?.name || 'Mobility',
-        videoUrl: formData.videoUrl || '',
-        rating: formData.rating || 0,
-      };
-      setExercises(prev => [...prev, newEx]);
+      setExercises(prev => [...prev, finalData]);
     }
     resetForm();
   };
@@ -84,14 +85,24 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
     }
   };
 
+  const toggleCategorySelection = (catName: string) => {
+    setFormData(prev => {
+      const currentCats = prev.categories || [];
+      const newCats = currentCats.includes(catName)
+        ? currentCats.filter(c => c !== catName)
+        : [...currentCats, catName];
+      return { ...prev, categories: newCats };
+    });
+  };
+
   const filteredExercises = exercises.filter(ex => 
     ex.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    ex.category.toLowerCase().includes(searchTerm.toLowerCase())
+    ex.categories.some(cat => cat.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const grouped = categories.map(cat => ({
     category: cat,
-    items: filteredExercises.filter(ex => ex.category === cat.name)
+    items: filteredExercises.filter(ex => ex.categories.includes(cat.name))
   })).filter(g => g.items.length > 0);
 
   const StarRating = ({ rating, onRate }: { rating: number; onRate: (r: number) => void }) => (
@@ -125,12 +136,25 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input 
             type="text" 
-            placeholder="Filter library..." 
+            placeholder="Search exercises..." 
             className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        
+        {/* "Add New" button in search bar */}
+        {searchTerm.trim().length > 0 && (
+          <button
+            onClick={() => {
+              setFormData({ ...formData, title: searchTerm, categories: [] });
+              setShowAddForm(true);
+            }}
+            className="w-full mt-3 flex items-center justify-center gap-2 py-2 border-2 border-dashed border-blue-200 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 transition-all animate-in slide-in-from-top-1"
+          >
+            <Plus size={14} /> Create "{searchTerm}"
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -153,21 +177,29 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
                 />
               </div>
 
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Category</label>
-                  <select 
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    value={formData.category}
-                    onChange={e => setFormData({...formData, category: e.target.value})}
-                  >
-                    {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-                  </select>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Categories (Select Multiple)</label>
+                <div className="flex flex-wrap gap-1.5 p-2 bg-white border border-gray-100 rounded-lg max-h-32 overflow-y-auto">
+                  {categories.map(c => {
+                    const isSelected = formData.categories?.includes(c.name);
+                    return (
+                      <button
+                        key={c.name}
+                        onClick={() => toggleCategorySelection(c.name)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${isSelected ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-500 border-gray-100 hover:border-blue-200'}`}
+                      >
+                        <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : c.color}`} />
+                        {c.name}
+                        {isSelected && <Check size={10} />}
+                      </button>
+                    );
+                  })}
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Rating</label>
-                  <StarRating rating={formData.rating || 0} onRate={r => setFormData({...formData, rating: r})} />
-                </div>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Rating</label>
+                <StarRating rating={formData.rating || 0} onRate={r => setFormData({...formData, rating: r})} />
               </div>
 
               <div>
@@ -177,18 +209,18 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
                   rows={2}
                   value={formData.description}
                   onChange={e => setFormData({...formData, description: e.target.value})}
-                  placeholder="Instructions for the exercise..."
+                  placeholder="Instructions..."
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Video Link (YouTube)</label>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">YouTube Link</label>
                 <input 
                   type="text" 
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                   value={formData.videoUrl}
                   onChange={e => setFormData({...formData, videoUrl: e.target.value})}
-                  placeholder="Paste URL to enable in-app player"
+                  placeholder="Paste URL..."
                 />
               </div>
             </div>
@@ -243,13 +275,14 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
                               </button>
                             )}
                           </div>
-                          {ex.rating > 0 && (
-                            <div className="flex items-center gap-0.5 mt-0.5">
-                              {[...Array(ex.rating)].map((_, i) => (
-                                <div key={i} className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                              ))}
-                            </div>
-                          )}
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {ex.categories.map(c => {
+                              const catInfo = categories.find(ci => ci.name === c);
+                              return (
+                                <div key={c} className={`w-1.5 h-1.5 rounded-full ${catInfo?.color || 'bg-gray-300'}`} title={c} />
+                              );
+                            })}
+                          </div>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
@@ -275,7 +308,6 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
                               className="w-full h-full"
                               frameBorder="0"
                               allowFullScreen
-                              referrerPolicy="strict-origin-when-cross-origin"
                             />
                           </div>
                         </div>

@@ -21,7 +21,13 @@ import Auth from './components/Auth';
 import CalendarView from './components/CalendarView';
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  // Default user to bypass login screen as requested
+  const [user, setUser] = useState<User | null>({
+    id: 'tester_001',
+    email: 'tester@example.com',
+    name: 'Testing User'
+  });
+  
   const [view, setView] = useState<ViewType>('main');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
@@ -46,7 +52,15 @@ export default function App() {
       const savedCategories = localStorage.getItem(`categories${storageKeySuffix}`);
       const savedScheduled = localStorage.getItem(`scheduledRoutines${storageKeySuffix}`);
       
-      if (savedExercises) setExercises(JSON.parse(savedExercises));
+      if (savedExercises) {
+        const parsed = JSON.parse(savedExercises);
+        // Migrating old data if necessary: convert category string to categories array
+        const migrated = parsed.map((ex: any) => ({
+          ...ex,
+          categories: Array.isArray(ex.categories) ? ex.categories : (ex.category ? [ex.category] : [])
+        }));
+        setExercises(migrated);
+      }
       if (savedRoutines) setRoutines(JSON.parse(savedRoutines));
       if (savedCategories) setCategories(JSON.parse(savedCategories));
       if (savedScheduled) setScheduledRoutines(JSON.parse(savedScheduled));
@@ -82,8 +96,7 @@ export default function App() {
     const match = url.match(regExp);
     const id = (match && match[2].length === 11) ? match[2] : null;
     if (!id) return null;
-    const origin = window.location.origin;
-    return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&origin=${encodeURIComponent(origin)}&enablejsapi=1`;
+    return `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&enablejsapi=1`;
   };
 
   if (!user) {
@@ -153,9 +166,6 @@ export default function App() {
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">User Profile</p>
                   <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
                 </div>
-                <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-                  <UserIcon size={16} /> Account Settings
-                </button>
                 <button 
                   onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition-colors"
