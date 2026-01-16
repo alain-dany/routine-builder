@@ -85,7 +85,7 @@ const ExerciseSelectorModal: React.FC<{
               >
                 <div className="flex items-center gap-3">
                   <div className="flex gap-0.5 shrink-0">
-                    {ex.categories.map(c => <div key={c} className={`w-1.5 h-1.5 rounded-full ${categories.find(ci => ci.name === c)?.color || 'bg-gray-400'}`} />)}
+                    {(ex.categories || []).map(c => <div key={c} className={`w-1.5 h-1.5 rounded-full ${categories.find(ci => ci.name === c)?.color || 'bg-gray-400'}`} />)}
                   </div>
                   <p className="text-sm font-bold text-gray-800">{ex.title}</p>
                 </div>
@@ -124,7 +124,7 @@ const CompactExerciseRow: React.FC<{
           <span className="text-sm font-semibold text-gray-800 truncate">{ex.title}</span>
           {embedUrl && <button onClick={() => setIsVideoOpen(!isVideoOpen)} className="text-blue-500 hover:text-blue-700"><PlayCircle size={14} /></button>}
           <div className="flex gap-1">
-            {ex.categories.map(cat => <span key={cat} className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider text-white ${categories.find(c => c.name === cat)?.color || 'bg-gray-400'}`}>{cat}</span>)}
+            {(ex.categories || []).map(cat => <span key={cat} className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider text-white ${categories.find(c => c.name === cat)?.color || 'bg-gray-400'}`}>{cat}</span>)}
           </div>
         </div>
         <button onClick={onRemove} className="p-1 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
