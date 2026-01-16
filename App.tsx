@@ -9,7 +9,8 @@ import {
   X,
   LogOut,
   User as UserIcon,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Database
 } from 'lucide-react';
 import { Exercise, Routine, Category, ViewType, User, ScheduledRoutine } from './types.ts';
 import { DEFAULT_CATEGORIES } from './constants.tsx';
@@ -19,6 +20,7 @@ import CategoryManager from './components/CategoryManager.tsx';
 import ExerciseLibrary from './components/ExerciseLibrary.tsx';
 import Auth from './components/Auth.tsx';
 import CalendarView from './components/CalendarView.tsx';
+import DataManagement from './components/DataManagement.tsx';
 
 export default function App() {
   const [user, setUser] = useState<User | null>({
@@ -99,12 +101,13 @@ export default function App() {
         </div>
         
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl mr-4">
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl mr-4 overflow-x-auto max-w-[50vw]">
             {[
               { id: 'main', icon: LayoutDashboard, label: 'Builder' },
               { id: 'calendar', icon: CalendarIcon, label: 'Calendar' },
               { id: 'exercises', icon: BookOpen, label: 'Library' },
-              { id: 'categories', icon: Tag, label: 'Labels' }
+              { id: 'categories', icon: Tag, label: 'Labels' },
+              { id: 'data', icon: Database, label: 'Data' }
             ].map((nav) => (
               <button
                 key={nav.id}
@@ -120,7 +123,7 @@ export default function App() {
 
           <button 
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold hover:bg-blue-100 transition-colors uppercase"
+            className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold hover:bg-blue-100 transition-colors uppercase flex-shrink-0"
           >
             {user.name[0]}
           </button>
@@ -162,6 +165,21 @@ export default function App() {
           </div>
         ) : view === 'calendar' ? (
           <CalendarView routines={routines} scheduledRoutines={scheduledRoutines} setScheduledRoutines={setScheduledRoutines} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+        ) : view === 'data' ? (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">
+            <div className="max-w-4xl mx-auto">
+              <DataManagement 
+                exercises={exercises} 
+                setExercises={setExercises}
+                routines={routines}
+                setRoutines={setRoutines}
+                categories={categories}
+                setCategories={setCategories}
+                scheduledRoutines={scheduledRoutines}
+                setScheduledRoutines={setScheduledRoutines}
+              />
+            </div>
+          </div>
         ) : (
           <div className="flex-1 overflow-y-auto p-6">
             <div className="max-w-4xl mx-auto">

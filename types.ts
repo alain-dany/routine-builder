@@ -10,7 +10,7 @@ export interface Exercise {
   id: number;
   title: string;
   description: string;
-  categories: string[]; // Changed from category: string
+  categories: string[];
   videoUrl: string;
   rating: number;
 }
@@ -42,9 +42,6 @@ export interface Routine {
   schedule?: RoutineSchedule;
 }
 
-/**
- * ScheduledRoutine represents a specific instance of a routine on the calendar.
- */
 export interface ScheduledRoutine {
   id: string;
   routineId: number;
@@ -58,4 +55,4 @@ export interface Category {
   color: string;
 }
 
-export type ViewType = 'main' | 'categories' | 'exercises' | 'calendar';
+export type ViewType = 'main' | 'categories' | 'exercises' | 'calendar' | 'data';
