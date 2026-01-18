@@ -118,16 +118,23 @@ const CompactExerciseRow: React.FC<{
 
   return (
     <div draggable onDragStart={onDragStart} onDragOver={e => e.preventDefault()} onDrop={onDrop} className="group flex flex-col bg-white border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50/50">
-      <div className="flex items-center gap-3 px-3 py-2">
-        <GripVertical size={14} className="text-gray-300 group-hover:text-blue-400 cursor-grab" />
-        <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
-          <span className="text-sm font-semibold text-gray-800 truncate">{ex.title}</span>
-          {embedUrl && <button onClick={() => setIsVideoOpen(!isVideoOpen)} className="text-blue-500 hover:text-blue-700"><PlayCircle size={14} /></button>}
-          <div className="flex gap-1">
-            {(ex.categories || []).map(cat => <span key={cat} className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider text-white ${categories.find(c => c.name === cat)?.color || 'bg-gray-400'}`}>{cat}</span>)}
+      <div className="flex items-start gap-3 px-3 py-3">
+        <GripVertical size={14} className="mt-1 text-gray-300 group-hover:text-blue-400 cursor-grab shrink-0" />
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-gray-800 truncate">{ex.title}</span>
+            {embedUrl && <button onClick={() => setIsVideoOpen(!isVideoOpen)} className="text-blue-500 hover:text-blue-700 shrink-0"><PlayCircle size={14} /></button>}
+            <div className="flex gap-1 shrink-0">
+              {(ex.categories || []).map(cat => <span key={cat} className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider text-white ${categories.find(c => c.name === cat)?.color || 'bg-gray-400'}`}>{cat}</span>)}
+            </div>
           </div>
+          {ex.description && (
+            <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed italic">
+              {ex.description}
+            </p>
+          )}
         </div>
-        <button onClick={onRemove} className="p-1 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
+        <button onClick={onRemove} className="p-1 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 shrink-0"><Trash2 size={14} /></button>
       </div>
       {isVideoOpen && embedUrl && (
         <div className="px-3 pb-3">
@@ -140,6 +147,7 @@ const CompactExerciseRow: React.FC<{
 
 const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, exercises, setExercises, categories }) => {
   const [selectorTarget, setSelectorTarget] = useState<{ rid: number; srid?: number } | null>(null);
+  const [draggedRoutineIndex, setDraggedRoutineIndex] = useState<number | null>(null);
 
   const updateRoutine = (id: number, updates: Partial<Routine>) => {
     setRoutines(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
@@ -170,6 +178,22 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
     toggleExerciseInRoutine(target.rid, newEx.id, target.srid);
   };
 
+  // Routine Drag and Drop Logic
+  const handleRoutineDragStart = (index: number) => {
+    setDraggedRoutineIndex(index);
+  };
+
+  const handleRoutineDrop = (index: number) => {
+    if (draggedRoutineIndex === null || draggedRoutineIndex === index) return;
+    
+    const newRoutines = [...routines];
+    const [movedItem] = newRoutines.splice(draggedRoutineIndex, 1);
+    newRoutines.splice(index, 0, movedItem);
+    
+    setRoutines(newRoutines);
+    setDraggedRoutineIndex(null);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
@@ -180,16 +204,29 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
       </div>
 
       <div className="grid gap-6">
-        {routines.map((routine) => (
-          <div key={routine.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {routines.map((routine, index) => (
+          <div 
+            key={routine.id} 
+            draggable 
+            onDragStart={() => handleRoutineDragStart(index)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => handleRoutineDrop(index)}
+            className={`bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-200 ${draggedRoutineIndex === index ? 'opacity-40 scale-95 border-blue-400 border-dashed' : 'opacity-100'}`}
+          >
             <div className="flex items-center gap-2 p-3 bg-gray-50/50 border-b border-gray-100">
+              <div 
+                className="p-1.5 text-gray-300 hover:text-blue-500 cursor-grab active:cursor-grabbing transition-colors"
+                title="Drag to reorder routine"
+              >
+                <GripVertical size={18} />
+              </div>
               <button onClick={() => updateRoutine(routine.id, { isExpanded: !routine.isExpanded })} className="p-1 hover:bg-gray-200 rounded text-gray-400">
                 {routine.isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
               </button>
               <input type="text" value={routine.name} onChange={(e) => updateRoutine(routine.id, { name: e.target.value })} className="bg-transparent font-bold text-gray-800 focus:outline-none flex-1 truncate" />
               <div className="flex items-center gap-1">
-                <button onClick={() => updateRoutine(routine.id, { subRoutines: [...routine.subRoutines, { id: Date.now(), name: 'New Section', exerciseItems: [], isExpanded: true }] })} className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg"><Layers size={18} /></button>
-                <button onClick={() => setRoutines(routines.filter(r => r.id !== routine.id))} className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg"><Trash2 size={18} /></button>
+                <button onClick={() => updateRoutine(routine.id, { subRoutines: [...routine.subRoutines, { id: Date.now(), name: 'New Section', exerciseItems: [], isExpanded: true }] })} className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg" title="Add Section"><Layers size={18} /></button>
+                <button onClick={() => setRoutines(routines.filter(r => r.id !== routine.id))} className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg" title="Delete Routine"><Trash2 size={18} /></button>
               </div>
             </div>
 
