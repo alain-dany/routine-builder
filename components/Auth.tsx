@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { LayoutDashboard, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
-import { User as UserType } from '../types';
+import { LayoutDashboard, Mail, Lock, User, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase.ts';
+import { User as UserType } from '../types.ts';
 
 interface AuthProps {
   onLogin: (user: UserType) => void;
@@ -13,31 +14,60 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
-    // Simulation of a successful login
-    setTimeout(() => {
-      onLogin({
-        id: 'user_123',
-        email: email || 'demo@example.com',
-        name: name || 'Alain Wilgemoet',
-      });
+    try {
+      if (mode === 'signup') {
+        const { data, error: signupError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: name }
+          }
+        });
+        if (signupError) throw signupError;
+        if (data.user) {
+          onLogin({
+            id: data.user.id,
+            email: data.user.email!,
+            name: data.user.user_metadata.full_name || 'New User',
+          });
+        }
+      } else {
+        const { data, error: signinError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+        if (signinError) throw signinError;
+        if (data.user) {
+          onLogin({
+            id: data.user.id,
+            email: data.user.email!,
+            name: data.user.user_metadata.full_name || data.user.email!.split('@')[0],
+          });
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Authentication failed');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl text-white shadow-xl mb-4 animate-bounce">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl text-white shadow-xl mb-4">
             <LayoutDashboard size={32} />
           </div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight">Routine Builder</h1>
-          <p className="text-gray-500 mt-2">Manage your personalized exercise routines.</p>
+          <p className="text-gray-500 mt-2">Personal Exercise & Routine Management</p>
         </div>
 
         <div className="bg-white rounded-3xl shadow-2xl shadow-blue-100 border border-gray-100 overflow-hidden">
@@ -45,6 +75,13 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             <h2 className="text-xl font-bold text-gray-800 mb-6">
               {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
             </h2>
+
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl flex items-center gap-3 text-sm font-medium animate-in slide-in-from-top-2">
+                <AlertCircle size={18} />
+                {error}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'signup' && (
@@ -112,10 +149,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
             </button>
           </div>
         </div>
-
-        <p className="text-center text-xs text-gray-400 mt-8">
-          By continuing, you agree to the Terms of Service and Privacy Policy.
-        </p>
       </div>
     </div>
   );

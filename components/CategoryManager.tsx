@@ -27,7 +27,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, setCatego
   };
 
   const handleDelete = (name: string) => {
-    const usageCount = exercises.filter(ex => ex.category === name).length;
+    // Fix: Access categories array and check for inclusion instead of a singular category property
+    const usageCount = exercises.filter(ex => ex.categories.includes(name)).length;
     
     if (usageCount > 0) {
       alert(`Cannot delete "${name}" because it is currently assigned to ${usageCount} exercise(s). Please change the category of those exercises before deleting this label.`);
@@ -135,7 +136,8 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ categories, setCatego
               <div className="min-w-0">
                 <p className="font-bold text-gray-800 truncate">{cat.name}</p>
                 <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">
-                  {exercises.filter(e => e.category === cat.name).length} Active
+                  {/* Fix: Access categories array and check for inclusion instead of a singular category property */}
+                  {exercises.filter(e => e.categories.includes(cat.name)).length} Active
                 </p>
               </div>
             </div>

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Tag, 
   LayoutDashboard,
@@ -10,10 +10,15 @@ import {
   LogOut,
   User as UserIcon,
   Calendar as CalendarIcon,
-  Database
+  Database,
+  CloudCheck,
+  RefreshCw,
+  Loader2,
+  CheckCircle
 } from 'lucide-react';
 import { Exercise, Routine, Category, ViewType, User, ScheduledRoutine } from './types.ts';
 import { DEFAULT_CATEGORIES } from './constants.tsx';
+import { supabase } from './lib/supabase.ts';
 import Sidebar from './components/Sidebar.tsx';
 import RoutineBuilder from './components/RoutineBuilder.tsx';
 import CategoryManager from './components/CategoryManager.tsx';
@@ -23,11 +28,10 @@ import CalendarView from './components/CalendarView.tsx';
 import DataManagement from './components/DataManagement.tsx';
 
 export default function App() {
-  const [user, setUser] = useState<User | null>({
-    id: 'tester_001',
-    email: 'tester@example.com',
-    name: 'Testing User'
-  });
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
   
   const [view, setView] = useState<ViewType>('main');
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -37,47 +41,115 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [dataLoaded, setDataLoaded] = useState(false);
 
+  const initialLoadRef = useRef(false);
+
+  // Auth Session Tracking
   useEffect(() => {
-    if (!user) {
-      setDataLoaded(false);
-      return;
-    }
-    try {
-      const suffix = `_${user.id}`;
-      const savedEx = localStorage.getItem(`exercises${suffix}`);
-      const savedRt = localStorage.getItem(`routines${suffix}`);
-      const savedCat = localStorage.getItem(`categories${suffix}`);
-      const savedSch = localStorage.getItem(`scheduledRoutines${suffix}`);
-      
-      if (savedEx) {
-        const parsed = JSON.parse(savedEx);
-        const migrated = parsed.map((ex: any) => ({
-          ...ex,
-          categories: Array.isArray(ex.categories) ? ex.categories : (ex.category ? [ex.category] : [])
-        }));
-        setExercises(migrated);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
+        });
       }
-      if (savedRt) setRoutines(JSON.parse(savedRt));
-      if (savedCat) setCategories(JSON.parse(savedCat));
-      if (savedSch) setScheduledRoutines(JSON.parse(savedSch));
-      setDataLoaded(true);
-    } catch (e) {
-      setDataLoaded(true);
-    }
+      setIsAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch Data from Supabase on Login
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchData = async () => {
+      setIsSyncing(true);
+      try {
+        const [exRes, rtRes, schRes] = await Promise.all([
+          supabase.from('exercises').select('*').eq('user_id', user.id),
+          supabase.from('routines').select('*').eq('user_id', user.id).order('order_index', { ascending: true }),
+          supabase.from('scheduled_routines').select('*').eq('user_id', user.id)
+        ]);
+
+        if (exRes.data) setExercises(exRes.data);
+        if (rtRes.data) setRoutines(rtRes.data);
+        if (schRes.data) setScheduledRoutines(schRes.data);
+        
+        setLastSynced(new Date());
+        initialLoadRef.current = true;
+      } catch (e) {
+        console.error("Fetch error", e);
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    fetchData();
   }, [user]);
 
+  // Sync Data to Supabase (Auto-save)
   useEffect(() => {
-    if (!user || !dataLoaded) return;
-    const suffix = `_${user.id}`;
-    localStorage.setItem(`exercises${suffix}`, JSON.stringify(exercises));
-    localStorage.setItem(`routines${suffix}`, JSON.stringify(routines));
-    localStorage.setItem(`categories${suffix}`, JSON.stringify(categories));
-    localStorage.setItem(`scheduledRoutines${suffix}`, JSON.stringify(scheduledRoutines));
-  }, [exercises, routines, categories, scheduledRoutines, user, dataLoaded]);
+    if (!user || !initialLoadRef.current) return;
 
-  const handleToggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+    const syncTimeout = setTimeout(async () => {
+      setIsSyncing(true);
+      try {
+        // Upsert Exercises
+        if (exercises.length > 0) {
+          await supabase.from('exercises').upsert(
+            exercises.map(ex => ({ ...ex, user_id: user.id }))
+          );
+        }
+
+        // Upsert Routines with order_index
+        if (routines.length > 0) {
+          await supabase.from('routines').upsert(
+            routines.map((rt, idx) => ({ 
+              ...rt, 
+              user_id: user.id,
+              order_index: idx 
+            }))
+          );
+        }
+
+        // Upsert Scheduled Routines
+        if (scheduledRoutines.length > 0) {
+          await supabase.from('scheduled_routines').upsert(
+            scheduledRoutines.map(sr => ({ ...sr, user_id: user.id }))
+          );
+        }
+
+        setLastSynced(new Date());
+      } catch (e) {
+        console.error("Sync error", e);
+      } finally {
+        setIsSyncing(false);
+      }
+    }, 2000); // Debounce sync by 2 seconds
+
+    return () => clearTimeout(syncTimeout);
+  }, [exercises, routines, scheduledRoutines, user]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setShowProfileMenu(false);
+    initialLoadRef.current = false;
+  };
 
   const getYoutubeEmbedUrl = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -85,6 +157,14 @@ export default function App() {
     const id = (match && match[2].length === 11) ? match[2] : null;
     return id ? `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&enablejsapi=1` : null;
   };
+
+  if (isAuthLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="animate-spin text-blue-600" size={48} />
+      </div>
+    );
+  }
 
   if (!user) return <Auth onLogin={setUser} />;
 
@@ -98,6 +178,18 @@ export default function App() {
             </div>
             <h1 className="text-xl font-bold text-gray-800 tracking-tight hidden sm:block">NeckTrack</h1>
           </div>
+          
+          <div className="flex items-center gap-2">
+            {isSyncing ? (
+              <div className="flex items-center gap-2 text-blue-500 text-[10px] font-black uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full animate-pulse">
+                <RefreshCw size={10} className="animate-spin" /> Syncing...
+              </div>
+            ) : lastSynced && (
+              <div className="flex items-center gap-2 text-green-600 text-[10px] font-black uppercase tracking-widest bg-green-50 px-3 py-1 rounded-full">
+                <CloudCheck size={10} /> Saved to Cloud
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-2">
@@ -107,7 +199,7 @@ export default function App() {
               { id: 'calendar', icon: CalendarIcon, label: 'Calendar' },
               { id: 'exercises', icon: BookOpen, label: 'Library' },
               { id: 'categories', icon: Tag, label: 'Labels' },
-              { id: 'data', icon: Database, label: 'Data' }
+              { id: 'data', icon: Database, label: 'Backup' }
             ].map((nav) => (
               <button
                 key={nav.id}
@@ -121,12 +213,29 @@ export default function App() {
             ))}
           </div>
 
-          <button 
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold hover:bg-blue-100 transition-colors uppercase flex-shrink-0"
-          >
-            {user.name[0]}
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+              className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold hover:bg-blue-100 transition-colors uppercase flex-shrink-0"
+            >
+              {user.name[0]}
+            </button>
+            {showProfileMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-4 py-3 border-b border-gray-50 mb-1">
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Account</p>
+                  <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
+                  <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut size={16} /> Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -140,7 +249,7 @@ export default function App() {
                 </div>
               </aside>
               <div className={`absolute top-4 z-50 transition-all duration-300 ${isSidebarOpen ? '-right-4' : 'left-1'}`}>
-                <button onClick={handleToggleSidebar} className="flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white shadow-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all">
+                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 bg-white shadow-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all">
                   {isSidebarOpen ? <ChevronLeft size={20} /> : <Library size={18} />}
                 </button>
               </div>
