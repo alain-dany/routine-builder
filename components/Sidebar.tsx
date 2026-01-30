@@ -9,7 +9,8 @@ import {
   Star,
   GripVertical,
   PlayCircle,
-  Check
+  Check,
+  PlusCircle
 } from 'lucide-react';
 import { Exercise, Category } from '../types';
 
@@ -95,15 +96,36 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
     });
   };
 
+  const handleAddNewToCategory = (catName: string) => {
+    setFormData({
+      title: '',
+      description: '',
+      categories: [catName],
+      videoUrl: '',
+      rating: 0
+    });
+    setEditingId(null);
+    setShowAddForm(true);
+  };
+
   const filteredExercises = exercises.filter(ex => 
     ex.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     ex.categories.some(cat => cat.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Group and Sort logic for consistency with Main Library
   const grouped = categories.map(cat => ({
     category: cat,
     items: filteredExercises.filter(ex => ex.categories.includes(cat.name))
-  })).filter(g => g.items.length > 0);
+  })).sort((a, b) => {
+    // Primary sort: Count (descending)
+    if (b.items.length !== a.items.length) {
+      return b.items.length - a.items.length;
+    }
+    // Secondary sort: Alphabetical
+    return a.category.name.localeCompare(b.category.name);
+  }).filter(g => g.items.length > 0 || (searchTerm === '' && g.items.length >= 0)); 
+  // We keep showing all categories in sidebar if search is empty, but sorted
 
   const StarRating = ({ rating, onRate }: { rating: number; onRate: (r: number) => void }) => (
     <div className="flex gap-1">
@@ -142,19 +164,6 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        
-        {/* "Add New" button in search bar */}
-        {searchTerm.trim().length > 0 && (
-          <button
-            onClick={() => {
-              setFormData({ ...formData, title: searchTerm, categories: [] });
-              setShowAddForm(true);
-            }}
-            className="w-full mt-3 flex items-center justify-center gap-2 py-2 border-2 border-dashed border-blue-200 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 transition-all animate-in slide-in-from-top-1"
-          >
-            <Plus size={14} /> Create "{searchTerm}"
-          </button>
-        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -174,11 +183,12 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
                   value={formData.title}
                   onChange={e => setFormData({...formData, title: e.target.value})}
                   placeholder="e.g. Chin Tuck Hold"
+                  autoFocus
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Categories (Select Multiple)</label>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Categories</label>
                 <div className="flex flex-wrap gap-1.5 p-2 bg-white border border-gray-100 rounded-lg max-h-32 overflow-y-auto">
                   {categories.map(c => {
                     const isSelected = formData.categories?.includes(c.name);
@@ -243,9 +253,21 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
         ) : (
           grouped.map(({ category, items }) => (
             <div key={category.name} className="space-y-2">
-              <div className="flex items-center gap-2 px-1">
-                <div className={`w-2 h-2 rounded-full ${category.color}`} />
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">{category.name}</h4>
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${category.color}`} />
+                  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">
+                    {category.name} 
+                    <span className="ml-2 text-blue-400">({items.length})</span>
+                  </h4>
+                </div>
+                <button 
+                  onClick={() => handleAddNewToCategory(category.name)}
+                  className="text-blue-500 hover:text-blue-700 p-1 rounded-md hover:bg-blue-50 transition-all shrink-0"
+                  title={`Quick add to ${category.name}`}
+                >
+                  <PlusCircle size={14} />
+                </button>
               </div>
               <div className="space-y-1.5">
                 {items.map(ex => {
@@ -274,14 +296,6 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
                                 <PlayCircle size={14} />
                               </button>
                             )}
-                          </div>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {ex.categories.map(c => {
-                              const catInfo = categories.find(ci => ci.name === c);
-                              return (
-                                <div key={c} className={`w-1.5 h-1.5 rounded-full ${catInfo?.color || 'bg-gray-300'}`} title={c} />
-                              );
-                            })}
                           </div>
                         </div>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

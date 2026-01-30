@@ -10,22 +10,38 @@ import {
   Star,
   PlayCircle,
   X,
-  Check
+  Check,
+  PlusCircle,
+  FolderPlus,
+  Tag
 } from 'lucide-react';
 import { Exercise, Category } from '../types';
+import { COLORS } from '../constants';
 
 interface ExerciseLibraryProps {
   exercises: Exercise[];
   setExercises: React.Dispatch<React.SetStateAction<Exercise[]>>;
   categories: Category[];
+  setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   onPlayVideo: (url: string) => void;
 }
 
-const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercises, categories, onPlayVideo }) => {
+const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ 
+  exercises, 
+  setExercises, 
+  categories, 
+  setCategories,
+  onPlayVideo 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [editingEx, setEditingEx] = useState<Exercise | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  
+  // New Category States
+  const [showNewCatForm, setShowNewCatForm] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [selectedCatColor, setSelectedCatColor] = useState(COLORS[0]);
 
   const toggleCategory = (catName: string) => {
     const newCollapsed = new Set(collapsedCategories);
@@ -48,16 +64,69 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
     setShowAddForm(true);
   };
 
+  const handleAddNewToCategory = (catName: string) => {
+    setEditingEx({
+      id: 0,
+      title: '',
+      description: '',
+      categories: [catName],
+      videoUrl: '',
+      rating: 0
+    });
+    setShowAddForm(true);
+  };
+
+  const handleCreateCategory = () => {
+    if (!newCatName.trim()) return;
+    if (categories.some(c => c.name.toLowerCase() === newCatName.trim().toLowerCase())) {
+      alert("A category with this name already exists.");
+      return;
+    }
+    setCategories(prev => [...prev, { name: newCatName.trim(), color: selectedCatColor }]);
+    setNewCatName('');
+    setShowNewCatForm(false);
+  };
+
+  const handleDeleteCategory = (catName: string) => {
+    const usage = exercises.filter(ex => ex.categories.includes(catName)).length;
+    
+    const message = usage > 0 
+      ? `This category contains ${usage} exercise(s). Are you sure you want to delete it? The exercises will remain in your library but won't be tagged with "${catName}" anymore.`
+      : `Are you sure you want to delete the "${catName}" category?`;
+
+    if (confirm(message)) {
+      // Remove category from list
+      setCategories(prev => prev.filter(c => c.name !== catName));
+      
+      // Clean up exercises: remove this category from any exercise that has it
+      setExercises(prev => prev.map(ex => ({
+        ...ex,
+        categories: ex.categories.filter(c => c !== catName)
+      })));
+    }
+  };
+
   const filteredExercises = exercises.filter(ex => 
     ex.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     ex.categories.some(c => c.toLowerCase().includes(searchTerm.toLowerCase())) ||
     ex.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Group and Sort logic: Most exercises at the top, unused at bottom
   const groups = categories.map(cat => ({
     category: cat,
     items: filteredExercises.filter(ex => ex.categories.includes(cat.name))
-  })).filter(g => g.items.length > 0 || searchTerm === '');
+  })).sort((a, b) => {
+    // Primary sort: Count (descending)
+    if (b.items.length !== a.items.length) {
+      return b.items.length - a.items.length;
+    }
+    // Secondary sort: Alphabetical
+    return a.category.name.localeCompare(b.category.name);
+  });
+
+  // Filter groups only if searching, otherwise show all
+  const displayedGroups = searchTerm ? groups.filter(g => g.items.length > 0) : groups;
 
   return (
     <div className="space-y-6">
@@ -85,24 +154,6 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
               <Plus size={20} /> Add New
             </button>
           </div>
-          {searchTerm.trim().length > 0 && (
-            <button
-              onClick={() => {
-                setEditingEx({
-                  id: 0,
-                  title: searchTerm,
-                  description: '',
-                  categories: [],
-                  videoUrl: '',
-                  rating: 0
-                });
-                setShowAddForm(true);
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2 border-2 border-dashed border-blue-200 text-blue-600 rounded-xl text-xs font-bold hover:bg-blue-50 transition-all"
-            >
-              <Plus size={14} /> Create New: "{searchTerm}"
-            </button>
-          )}
         </div>
       </div>
 
@@ -133,38 +184,52 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
       )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
-        {groups.map(({ category, items }) => (
+        {displayedGroups.map(({ category, items }) => (
           <div 
             key={category.name} 
-            className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden"
+            className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden group/cat"
           >
-            {/* Folder Header */}
-            <div 
-              className={`h-2 w-full ${category.color}`}
-            />
-            <button 
-              onClick={() => toggleCategory(category.name)}
-              className="flex items-center justify-between p-4 bg-gray-50/50 hover:bg-gray-100 transition-colors"
-            >
-              <div className="flex items-center gap-3">
+            <div className={`h-2 w-full ${category.color}`} />
+            <div className="flex items-center justify-between bg-gray-50/50 hover:bg-gray-100 transition-colors">
+              <button 
+                onClick={() => toggleCategory(category.name)}
+                className="flex flex-1 items-center gap-3 p-4 text-left"
+              >
                 <span className={`w-3 h-3 rounded-full ${category.color}`} />
                 <h3 className="font-bold text-gray-700">{category.name}</h3>
-                <span className="text-xs font-bold text-gray-400 bg-gray-200/50 px-2 py-0.5 rounded-full">{items.length}</span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${items.length > 0 ? 'bg-blue-100 text-blue-600' : 'bg-gray-200/50 text-gray-400'}`}>
+                  {items.length}
+                </span>
+                {collapsedCategories.has(category.name) ? <ChevronRight size={18} className="text-gray-400 ml-auto" /> : <ChevronDown size={18} className="text-gray-400 ml-auto" />}
+              </button>
+              <div className="flex items-center mr-2">
+                <button 
+                  onClick={() => handleAddNewToCategory(category.name)}
+                  title={`Add exercise to ${category.name}`}
+                  className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <PlusCircle size={20} />
+                </button>
+                <button 
+                  onClick={() => handleDeleteCategory(category.name)}
+                  className="p-2 text-gray-300 hover:text-red-500 opacity-0 group-hover/cat:opacity-100 transition-opacity"
+                  title="Delete category"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
-              {collapsedCategories.has(category.name) ? <ChevronRight size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
-            </button>
+            </div>
 
-            {/* Folder Content */}
             {!collapsedCategories.has(category.name) && (
               <div className="p-3 space-y-3 min-h-[50px] bg-white animate-in slide-in-from-top-2 duration-200">
                 {items.length === 0 ? (
-                  <p className="text-center py-6 text-xs text-gray-400 italic">No matching exercises</p>
+                  <p className="text-center py-6 text-xs text-gray-400 italic">No exercises here</p>
                 ) : (
                   items.map(ex => (
                     <div 
                       key={ex.id} 
                       onClick={() => ex.videoUrl && onPlayVideo(ex.videoUrl)}
-                      className={`group p-4 bg-gray-50 rounded-xl border border-transparent hover:border-blue-200 hover:bg-blue-50/30 transition-all ${ex.videoUrl ? 'cursor-pointer' : ''}`}
+                      className={`group/ex p-4 bg-gray-50 rounded-xl border border-transparent hover:border-blue-200 hover:bg-blue-50/30 transition-all ${ex.videoUrl ? 'cursor-pointer' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex flex-col gap-1">
@@ -183,13 +248,13 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
                             })}
                           </div>
                         </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-1 opacity-0 group-hover/ex:opacity-100 transition-opacity">
                           <button onClick={(e) => { e.stopPropagation(); handleEdit(ex); }} className="p-1 text-gray-400 hover:text-blue-600"><Edit2 size={14} /></button>
                           <button onClick={(e) => { e.stopPropagation(); handleDelete(ex.id); }} className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                         </div>
                       </div>
                       <p className="text-xs text-gray-500 line-clamp-2 mb-3 leading-relaxed">
-                        {ex.description || 'No description provided.'}
+                        {ex.description || 'No description.'}
                       </p>
                       <div className="flex items-center justify-between">
                         <div className="flex gap-0.5">
@@ -206,10 +271,63 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({ exercises, setExercis
                     </div>
                   ))
                 )}
+                
+                <button 
+                  onClick={() => handleAddNewToCategory(category.name)}
+                  className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-100 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:border-blue-200 hover:text-blue-500 transition-all mt-2"
+                >
+                  <Plus size={14} /> Add to {category.name}
+                </button>
               </div>
             )}
           </div>
         ))}
+
+        {/* Inline Add Category Button/Form */}
+        <div className="bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-[120px] justify-center transition-all hover:bg-white hover:border-blue-300">
+          {!showNewCatForm ? (
+            <button 
+              onClick={() => setShowNewCatForm(true)}
+              className="w-full h-full flex flex-col items-center justify-center gap-2 p-6 text-gray-400 hover:text-blue-500 transition-all"
+            >
+              <FolderPlus size={32} />
+              <span className="text-xs font-black uppercase tracking-widest">New Category</span>
+            </button>
+          ) : (
+            <div className="p-4 space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-2">
+                  <Tag size={12} /> Label Creator
+                </h4>
+                <button onClick={() => setShowNewCatForm(false)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+              </div>
+              <input 
+                type="text" 
+                placeholder="Category Name..." 
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                value={newCatName}
+                onChange={e => setNewCatName(e.target.value)}
+                autoFocus
+              />
+              <div className="flex flex-wrap gap-2">
+                {COLORS.slice(0, 10).map(color => (
+                  <button 
+                    key={color} 
+                    onClick={() => setSelectedCatColor(color)}
+                    className={`w-5 h-5 rounded-full ${color} transition-all ${selectedCatColor === color ? 'ring-2 ring-offset-2 ring-blue-400 scale-110' : 'hover:scale-110'}`}
+                  />
+                ))}
+              </div>
+              <button 
+                onClick={handleCreateCategory}
+                disabled={!newCatName.trim()}
+                className="w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50"
+              >
+                Create Category
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -247,6 +365,7 @@ const ExerciseForm: React.FC<{
           onChange={e => setFormData({ ...formData, title: e.target.value })}
           className="w-full px-4 py-3 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="e.g. Chin Tuck"
+          autoFocus
         />
       </div>
       

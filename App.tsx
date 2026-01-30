@@ -7,29 +7,31 @@ import {
   ChevronLeft,
   Library,
   X,
-  LogOut,
   User as UserIcon,
   Calendar as CalendarIcon,
   Database,
-  CloudCheck,
+  Monitor,
   RefreshCw,
   Loader2,
-  CheckCircle
+  HardDrive
 } from 'lucide-react';
 import { Exercise, Routine, Category, ViewType, User, ScheduledRoutine } from './types.ts';
 import { DEFAULT_CATEGORIES } from './constants.tsx';
-import { supabase } from './lib/supabase.ts';
 import Sidebar from './components/Sidebar.tsx';
 import RoutineBuilder from './components/RoutineBuilder.tsx';
-import CategoryManager from './components/CategoryManager.tsx';
 import ExerciseLibrary from './components/ExerciseLibrary.tsx';
-import Auth from './components/Auth.tsx';
 import CalendarView from './components/CalendarView.tsx';
 import DataManagement from './components/DataManagement.tsx';
 
+// Mock user for local-only mode
+const LOCAL_USER: User = {
+  id: 'local-device-user',
+  email: 'local@device',
+  name: 'User'
+};
+
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(LOCAL_USER);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   
@@ -44,112 +46,52 @@ export default function App() {
 
   const initialLoadRef = useRef(false);
 
-  // Auth Session Tracking
+  // Load Data from Local Storage on Start
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
-        });
-      }
-      setIsAuthLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          name: session.user.user_metadata.full_name || session.user.email!.split('@')[0],
-        });
-      } else {
-        setUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Fetch Data from Supabase on Login
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchData = async () => {
-      setIsSyncing(true);
+    const loadData = () => {
       try {
-        const [exRes, rtRes, schRes] = await Promise.all([
-          supabase.from('exercises').select('*').eq('user_id', user.id),
-          supabase.from('routines').select('*').eq('user_id', user.id).order('order_index', { ascending: true }),
-          supabase.from('scheduled_routines').select('*').eq('user_id', user.id)
-        ]);
+        const savedExercises = localStorage.getItem('necktrack_exercises');
+        const savedRoutines = localStorage.getItem('necktrack_routines');
+        const savedSchedules = localStorage.getItem('necktrack_schedules');
+        const savedCategories = localStorage.getItem('necktrack_categories');
 
-        if (exRes.data) setExercises(exRes.data);
-        if (rtRes.data) setRoutines(rtRes.data);
-        if (schRes.data) setScheduledRoutines(schRes.data);
+        if (savedExercises) setExercises(JSON.parse(savedExercises));
+        if (savedRoutines) setRoutines(JSON.parse(savedRoutines));
+        if (savedSchedules) setScheduledRoutines(JSON.parse(savedSchedules));
+        if (savedCategories) setCategories(JSON.parse(savedCategories));
         
         setLastSynced(new Date());
         initialLoadRef.current = true;
       } catch (e) {
-        console.error("Fetch error", e);
-      } finally {
-        setIsSyncing(false);
+        console.error("Local storage load error", e);
       }
     };
 
-    fetchData();
-  }, [user]);
+    loadData();
+  }, []);
 
-  // Sync Data to Supabase (Auto-save)
+  // Sync Data to Local Storage (Auto-save)
   useEffect(() => {
-    if (!user || !initialLoadRef.current) return;
+    if (!initialLoadRef.current) return;
 
-    const syncTimeout = setTimeout(async () => {
+    const syncToLocal = () => {
       setIsSyncing(true);
       try {
-        // Upsert Exercises
-        if (exercises.length > 0) {
-          await supabase.from('exercises').upsert(
-            exercises.map(ex => ({ ...ex, user_id: user.id }))
-          );
-        }
-
-        // Upsert Routines with order_index
-        if (routines.length > 0) {
-          await supabase.from('routines').upsert(
-            routines.map((rt, idx) => ({ 
-              ...rt, 
-              user_id: user.id,
-              order_index: idx 
-            }))
-          );
-        }
-
-        // Upsert Scheduled Routines
-        if (scheduledRoutines.length > 0) {
-          await supabase.from('scheduled_routines').upsert(
-            scheduledRoutines.map(sr => ({ ...sr, user_id: user.id }))
-          );
-        }
-
+        localStorage.setItem('necktrack_exercises', JSON.stringify(exercises));
+        localStorage.setItem('necktrack_routines', JSON.stringify(routines));
+        localStorage.setItem('necktrack_schedules', JSON.stringify(scheduledRoutines));
+        localStorage.setItem('necktrack_categories', JSON.stringify(categories));
         setLastSynced(new Date());
       } catch (e) {
-        console.error("Sync error", e);
+        console.error("Local storage save error", e);
       } finally {
-        setIsSyncing(false);
+        setTimeout(() => setIsSyncing(false), 300);
       }
-    }, 2000); // Debounce sync by 2 seconds
+    };
 
-    return () => clearTimeout(syncTimeout);
-  }, [exercises, routines, scheduledRoutines, user]);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setShowProfileMenu(false);
-    initialLoadRef.current = false;
-  };
+    const debounceTimer = setTimeout(syncToLocal, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [exercises, routines, scheduledRoutines, categories]);
 
   const getYoutubeEmbedUrl = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -157,16 +99,6 @@ export default function App() {
     const id = (match && match[2].length === 11) ? match[2] : null;
     return id ? `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&enablejsapi=1` : null;
   };
-
-  if (isAuthLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="animate-spin text-blue-600" size={48} />
-      </div>
-    );
-  }
-
-  if (!user) return <Auth onLogin={setUser} />;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gray-50 text-gray-900 font-sans">
@@ -182,11 +114,11 @@ export default function App() {
           <div className="flex items-center gap-2">
             {isSyncing ? (
               <div className="flex items-center gap-2 text-blue-500 text-[10px] font-black uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full animate-pulse">
-                <RefreshCw size={10} className="animate-spin" /> Syncing...
+                <RefreshCw size={10} className="animate-spin" /> Saving...
               </div>
             ) : lastSynced && (
-              <div className="flex items-center gap-2 text-green-600 text-[10px] font-black uppercase tracking-widest bg-green-50 px-3 py-1 rounded-full">
-                <CloudCheck size={10} /> Saved to Cloud
+              <div className="flex items-center gap-2 text-gray-500 text-[10px] font-black uppercase tracking-widest bg-gray-100 px-3 py-1 rounded-full">
+                <HardDrive size={10} /> Local Storage
               </div>
             )}
           </div>
@@ -198,7 +130,6 @@ export default function App() {
               { id: 'main', icon: LayoutDashboard, label: 'Builder' },
               { id: 'calendar', icon: CalendarIcon, label: 'Calendar' },
               { id: 'exercises', icon: BookOpen, label: 'Library' },
-              { id: 'categories', icon: Tag, label: 'Labels' },
               { id: 'data', icon: Database, label: 'Backup' }
             ].map((nav) => (
               <button
@@ -218,20 +149,20 @@ export default function App() {
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="w-10 h-10 bg-blue-50 border border-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold hover:bg-blue-100 transition-colors uppercase flex-shrink-0"
             >
-              {user.name[0]}
+              <UserIcon size={18} />
             </button>
             {showProfileMenu && (
               <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
                 <div className="px-4 py-3 border-b border-gray-50 mb-1">
-                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Account</p>
-                  <p className="text-sm font-bold text-gray-800 truncate">{user.name}</p>
-                  <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Storage Status</p>
+                  <p className="text-sm font-bold text-gray-800 truncate">Device Session</p>
+                  <p className="text-[10px] text-gray-500">Data is stored locally on this browser.</p>
                 </div>
                 <button 
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors"
+                  onClick={() => setShowProfileMenu(false)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
                 >
-                  <LogOut size={16} /> Sign Out
+                  <Monitor size={16} /> Dashboard
                 </button>
               </div>
             )}
@@ -269,12 +200,18 @@ export default function App() {
         ) : view === 'exercises' ? (
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">
             <div className="max-w-7xl mx-auto">
-              <ExerciseLibrary exercises={exercises} setExercises={setExercises} categories={categories} onPlayVideo={setActiveVideoUrl} />
+              <ExerciseLibrary 
+                exercises={exercises} 
+                setExercises={setExercises} 
+                categories={categories} 
+                setCategories={setCategories}
+                onPlayVideo={setActiveVideoUrl} 
+              />
             </div>
           </div>
         ) : view === 'calendar' ? (
           <CalendarView routines={routines} scheduledRoutines={scheduledRoutines} setScheduledRoutines={setScheduledRoutines} isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
-        ) : view === 'data' ? (
+        ) : (
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">
             <div className="max-w-4xl mx-auto">
               <DataManagement 
@@ -287,12 +224,6 @@ export default function App() {
                 scheduledRoutines={scheduledRoutines}
                 setScheduledRoutines={setScheduledRoutines}
               />
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-4xl mx-auto">
-              <CategoryManager categories={categories} setCategories={setCategories} exercises={exercises} />
             </div>
           </div>
         )}
