@@ -124,8 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
     }
     // Secondary sort: Alphabetical
     return a.category.name.localeCompare(b.category.name);
-  }).filter(g => g.items.length > 0 || (searchTerm === '' && g.items.length >= 0)); 
-  // We keep showing all categories in sidebar if search is empty, but sorted
+  }).filter(g => searchTerm === '' || g.items.length > 0);
 
   const StarRating = ({ rating, onRate }: { rating: number; onRate: (r: number) => void }) => (
     <div className="flex gap-1">
@@ -145,7 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
       <div className="p-5 border-b border-gray-50 bg-gray-50/30">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold text-gray-800">Exercise Library</h2>
+          <h2 className="text-lg font-bold text-gray-800">Exercises</h2>
           <button 
             onClick={() => setShowAddForm(true)}
             className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm text-sm"
@@ -158,7 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({ exercises, setExercises, categories }
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input 
             type="text" 
-            placeholder="Search exercises..." 
+            placeholder="Search library..." 
             className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}

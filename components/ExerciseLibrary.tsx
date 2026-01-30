@@ -91,7 +91,7 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({
     const usage = exercises.filter(ex => ex.categories.includes(catName)).length;
     
     const message = usage > 0 
-      ? `This category contains ${usage} exercise(s). Are you sure you want to delete it? The exercises will remain in your library but won't be tagged with "${catName}" anymore.`
+      ? `This category "${catName}" contains ${usage} exercise(s). Are you sure you want to delete it? The exercises will remain in your library but won't be tagged with "${catName}" anymore.`
       : `Are you sure you want to delete the "${catName}" category?`;
 
     if (confirm(message)) {
@@ -133,7 +133,7 @@ const ExerciseLibrary: React.FC<ExerciseLibraryProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Exercise Library</h2>
-          <p className="text-gray-500">View and manage your entire exercise catalog</p>
+          <p className="text-gray-500">View and manage your catalog by category</p>
         </div>
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3">

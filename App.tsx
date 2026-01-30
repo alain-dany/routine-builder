@@ -50,10 +50,10 @@ export default function App() {
   useEffect(() => {
     const loadData = () => {
       try {
-        const savedExercises = localStorage.getItem('necktrack_exercises');
-        const savedRoutines = localStorage.getItem('necktrack_routines');
-        const savedSchedules = localStorage.getItem('necktrack_schedules');
-        const savedCategories = localStorage.getItem('necktrack_categories');
+        const savedExercises = localStorage.getItem('rb_exercises');
+        const savedRoutines = localStorage.getItem('rb_routines');
+        const savedSchedules = localStorage.getItem('rb_schedules');
+        const savedCategories = localStorage.getItem('rb_categories');
 
         if (savedExercises) setExercises(JSON.parse(savedExercises));
         if (savedRoutines) setRoutines(JSON.parse(savedRoutines));
@@ -77,10 +77,10 @@ export default function App() {
     const syncToLocal = () => {
       setIsSyncing(true);
       try {
-        localStorage.setItem('necktrack_exercises', JSON.stringify(exercises));
-        localStorage.setItem('necktrack_routines', JSON.stringify(routines));
-        localStorage.setItem('necktrack_schedules', JSON.stringify(scheduledRoutines));
-        localStorage.setItem('necktrack_categories', JSON.stringify(categories));
+        localStorage.setItem('rb_exercises', JSON.stringify(exercises));
+        localStorage.setItem('rb_routines', JSON.stringify(routines));
+        localStorage.setItem('rb_schedules', JSON.stringify(scheduledRoutines));
+        localStorage.setItem('rb_categories', JSON.stringify(categories));
         setLastSynced(new Date());
       } catch (e) {
         console.error("Local storage save error", e);
@@ -108,7 +108,7 @@ export default function App() {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-sm">
               <LayoutDashboard size={18} />
             </div>
-            <h1 className="text-xl font-bold text-gray-800 tracking-tight hidden sm:block">NeckTrack</h1>
+            <h1 className="text-xl font-bold text-gray-800 tracking-tight hidden sm:block">Routine Builder</h1>
           </div>
           
           <div className="flex items-center gap-2">
@@ -155,14 +155,14 @@ export default function App() {
               <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
                 <div className="px-4 py-3 border-b border-gray-50 mb-1">
                   <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Storage Status</p>
-                  <p className="text-sm font-bold text-gray-800 truncate">Device Session</p>
-                  <p className="text-[10px] text-gray-500">Data is stored locally on this browser.</p>
+                  <p className="text-sm font-bold text-gray-800 truncate">Local Session</p>
+                  <p className="text-[10px] text-gray-500">Data is stored locally on this device.</p>
                 </div>
                 <button 
                   onClick={() => setShowProfileMenu(false)}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
                 >
-                  <Monitor size={16} /> Dashboard
+                  <Monitor size={16} /> Home
                 </button>
               </div>
             )}
