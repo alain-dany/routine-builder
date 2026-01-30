@@ -12,9 +12,9 @@ import {
   Search,
   Check,
   Clock,
-  Download
+  PlusCircle
 } from 'lucide-react';
-import { Routine, Exercise, Category, ExerciseItem, RoutineSchedule } from '../types.ts';
+import { Routine, Exercise, Category, ExerciseItem } from '../types.ts';
 
 interface RoutineBuilderProps {
   routines: Routine[];
@@ -108,16 +108,28 @@ const CompactExerciseRow: React.FC<{
   onRemove: () => void; 
   exercises: Exercise[]; 
   categories: Category[];
-  onDragStart: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent) => void;
-}> = ({ exerciseId, onRemove, exercises, categories, onDragStart, onDrop }) => {
+  routineId: number;
+  subRoutineId?: number;
+}> = ({ exerciseId, onRemove, exercises, categories, routineId, subRoutineId }) => {
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const ex = exercises.find(e => e.id === exerciseId);
   if (!ex) return null;
   const embedUrl = ex.videoUrl ? getYoutubeEmbedUrl(ex.videoUrl) : null;
 
+  const handleDragStart = (e: React.DragEvent) => {
+    e.stopPropagation(); // CRITICAL: Prevents parent routine from graying out
+    e.dataTransfer.setData('exerciseId', exerciseId.toString());
+    e.dataTransfer.setData('sourceRoutineId', routineId.toString());
+    if (subRoutineId) e.dataTransfer.setData('sourceSubRoutineId', subRoutineId.toString());
+  };
+
   return (
-    <div draggable onDragStart={onDragStart} onDragOver={e => e.preventDefault()} onDrop={onDrop} className="group flex flex-col bg-white border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50/50">
+    <div 
+      draggable 
+      onDragStart={handleDragStart} 
+      onDragOver={e => e.preventDefault()} 
+      className="group flex flex-col bg-white border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50/50"
+    >
       <div className="flex items-start gap-3 px-3 py-3">
         <GripVertical size={14} className="mt-1 text-gray-300 group-hover:text-blue-400 cursor-grab shrink-0" />
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
@@ -148,9 +160,67 @@ const CompactExerciseRow: React.FC<{
 const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, exercises, setExercises, categories }) => {
   const [selectorTarget, setSelectorTarget] = useState<{ rid: number; srid?: number } | null>(null);
   const [draggedRoutineIndex, setDraggedRoutineIndex] = useState<number | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{ rid: number; srid?: number } | null>(null);
 
   const updateRoutine = (id: number, updates: Partial<Routine>) => {
     setRoutines(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+  };
+
+  const handleExerciseDrop = (e: React.DragEvent, destRid: number, destSrid?: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTarget(null);
+
+    const exerciseId = parseInt(e.dataTransfer.getData('exerciseId'));
+    const sourceRid = e.dataTransfer.getData('sourceRoutineId') ? parseInt(e.dataTransfer.getData('sourceRoutineId')) : null;
+    const sourceSrid = e.dataTransfer.getData('sourceSubRoutineId') ? parseInt(e.dataTransfer.getData('sourceSubRoutineId')) : null;
+
+    if (isNaN(exerciseId)) return;
+
+    setRoutines(prev => {
+      let next = [...prev];
+
+      // 1. Remove from source if it exists
+      if (sourceRid !== null) {
+        next = next.map(r => {
+          if (r.id !== sourceRid) return r;
+          if (sourceSrid !== null) {
+            return {
+              ...r,
+              subRoutines: r.subRoutines.map(sr => 
+                sr.id === sourceSrid 
+                  ? { ...sr, exerciseItems: sr.exerciseItems.filter(i => i.exerciseId !== exerciseId) }
+                  : sr
+              )
+            };
+          } else {
+            return { ...r, exerciseItems: r.exerciseItems.filter(i => i.exerciseId !== exerciseId) };
+          }
+        });
+      }
+
+      // 2. Add to destination
+      next = next.map(r => {
+        if (r.id !== destRid) return r;
+        if (destSrid !== undefined) {
+          return {
+            ...r,
+            subRoutines: r.subRoutines.map(sr => {
+              if (sr.id !== destSrid) return sr;
+              // Check for duplicates in this specific section
+              if (sr.exerciseItems.some(i => i.exerciseId === exerciseId)) return sr;
+              return { ...sr, exerciseItems: [...sr.exerciseItems, { exerciseId }] };
+            })
+          };
+        } else {
+          // Check for duplicates in the root of this routine
+          if (r.exerciseItems.some(i => i.exerciseId === exerciseId)) return r;
+          return { ...r, exerciseItems: [...r.exerciseItems, { exerciseId }] };
+        }
+      });
+
+      return next;
+    });
   };
 
   const toggleExerciseInRoutine = (routineId: number, exerciseId: number, subRoutineId?: number) => {
@@ -179,15 +249,18 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
   };
 
   // Routine Drag and Drop Logic
-  const handleRoutineDragStart = (index: number) => {
+  const handleRoutineDragStart = (e: React.DragEvent, index: number) => {
     setDraggedRoutineIndex(index);
+    e.dataTransfer.setData('routineMoveIndex', index.toString());
   };
 
-  const handleRoutineDrop = (index: number) => {
-    if (draggedRoutineIndex === null || draggedRoutineIndex === index) return;
+  const handleRoutineDrop = (e: React.DragEvent, index: number) => {
+    const routineMoveIndex = e.dataTransfer.getData('routineMoveIndex');
+    if (routineMoveIndex === "" || parseInt(routineMoveIndex) === index) return;
     
+    const fromIndex = parseInt(routineMoveIndex);
     const newRoutines = [...routines];
-    const [movedItem] = newRoutines.splice(draggedRoutineIndex, 1);
+    const [movedItem] = newRoutines.splice(fromIndex, 1);
     newRoutines.splice(index, 0, movedItem);
     
     setRoutines(newRoutines);
@@ -208,10 +281,11 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
           <div 
             key={routine.id} 
             draggable 
-            onDragStart={() => handleRoutineDragStart(index)}
+            onDragStart={(e) => handleRoutineDragStart(e, index)}
             onDragOver={(e) => e.preventDefault()}
-            onDrop={() => handleRoutineDrop(index)}
-            className={`bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-200 ${draggedRoutineIndex === index ? 'opacity-40 scale-95 border-blue-400 border-dashed' : 'opacity-100'}`}
+            onDragEnd={() => setDraggedRoutineIndex(null)}
+            onDrop={(e) => handleRoutineDrop(e, index)}
+            className={`bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-200 ${draggedRoutineIndex === index ? 'opacity-40 scale-[0.98] border-blue-400 border-dashed' : 'opacity-100'}`}
           >
             <div className="flex items-center gap-2 p-3 bg-gray-50/50 border-b border-gray-100">
               <div 
@@ -225,34 +299,81 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
               </button>
               <input type="text" value={routine.name} onChange={(e) => updateRoutine(routine.id, { name: e.target.value })} className="bg-transparent font-bold text-gray-800 focus:outline-none flex-1 truncate" />
               <div className="flex items-center gap-1">
-                <button onClick={() => updateRoutine(routine.id, { subRoutines: [...routine.subRoutines, { id: Date.now(), name: 'New Section', exerciseItems: [], isExpanded: true }] })} className="p-1.5 hover:bg-blue-50 text-blue-600 rounded-lg" title="Add Section"><Layers size={18} /></button>
+                <button 
+                  onClick={() => updateRoutine(routine.id, { subRoutines: [...routine.subRoutines, { id: Date.now(), name: 'New Section', exerciseItems: [], isExpanded: true }] })} 
+                  className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors" 
+                  title="Add Section"
+                >
+                  <PlusCircle size={16} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Section</span>
+                </button>
                 <button onClick={() => setRoutines(routines.filter(r => r.id !== routine.id))} className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg" title="Delete Routine"><Trash2 size={18} /></button>
               </div>
             </div>
 
             {routine.isExpanded && (
               <div className="p-4 space-y-4">
-                <div className="bg-gray-50/50 border border-gray-100 rounded-xl overflow-hidden">
-                  {routine.exerciseItems.map((item, idx) => (
-                    <CompactExerciseRow key={`${item.exerciseId}-${idx}`} exerciseId={item.exerciseId} exercises={exercises} categories={categories} onRemove={() => toggleExerciseInRoutine(routine.id, item.exerciseId)} onDragStart={() => {}} onDrop={() => {}} />
-                  ))}
-                  <button onClick={() => setSelectorTarget({ rid: routine.id })} className="w-full flex items-center justify-center gap-2 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 hover:bg-blue-50">
+                <div 
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOverTarget({ rid: routine.id });
+                  }}
+                  onDragLeave={() => setDragOverTarget(null)}
+                  onDrop={(e) => handleExerciseDrop(e, routine.id)}
+                  className={`bg-gray-50/50 border border-gray-100 rounded-xl overflow-hidden transition-all ${dragOverTarget?.rid === routine.id && dragOverTarget?.srid === undefined ? 'ring-2 ring-blue-500 bg-blue-50/30' : ''}`}
+                >
+                  {routine.exerciseItems.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-gray-400 font-medium">No root exercises. Drag items here or add below.</div>
+                  ) : (
+                    routine.exerciseItems.map((item, idx) => (
+                      <CompactExerciseRow 
+                        key={`${item.exerciseId}-${idx}`} 
+                        exerciseId={item.exerciseId} 
+                        exercises={exercises} 
+                        categories={categories} 
+                        routineId={routine.id}
+                        onRemove={() => toggleExerciseInRoutine(routine.id, item.exerciseId)} 
+                      />
+                    ))
+                  )}
+                  <button onClick={() => setSelectorTarget({ rid: routine.id })} className="w-full flex items-center justify-center gap-2 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-blue-500 hover:bg-blue-50 border-t border-gray-100">
                     <Plus size={14} /> Add Exercise
                   </button>
                 </div>
 
                 {routine.subRoutines.map((sr) => (
-                  <div key={sr.id} className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+                  <div 
+                    key={sr.id} 
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOverTarget({ rid: routine.id, srid: sr.id });
+                    }}
+                    onDragLeave={() => setDragOverTarget(null)}
+                    onDrop={(e) => handleExerciseDrop(e, routine.id, sr.id)}
+                    className={`bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden transition-all ${dragOverTarget?.rid === routine.id && dragOverTarget?.srid === sr.id ? 'ring-2 ring-blue-500 scale-[1.01]' : ''}`}
+                  >
                     <div className="flex items-center gap-2 p-2 px-3 bg-blue-50/30 border-b border-blue-100">
                       <input type="text" value={sr.name} onChange={(e) => updateRoutine(routine.id, { subRoutines: routine.subRoutines.map(s => s.id === sr.id ? { ...s, name: e.target.value } : s) })} className="bg-transparent text-sm font-bold text-blue-900 focus:outline-none flex-1 truncate" />
                       <button onClick={() => updateRoutine(routine.id, { subRoutines: routine.subRoutines.filter(s => s.id !== sr.id) })} className="p-1 hover:bg-red-100 rounded text-red-400"><Trash2 size={14} /></button>
                     </div>
                     {sr.isExpanded && (
                       <div>
-                        {sr.exerciseItems.map((item, idx) => (
-                          <CompactExerciseRow key={`${item.exerciseId}-${idx}`} exerciseId={item.exerciseId} exercises={exercises} categories={categories} onRemove={() => toggleExerciseInRoutine(routine.id, item.exerciseId, sr.id)} onDragStart={() => {}} onDrop={() => {}} />
-                        ))}
-                        <button onClick={() => setSelectorTarget({ rid: routine.id, srid: sr.id })} className="w-full flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-blue-400 hover:bg-blue-50/50">
+                        {sr.exerciseItems.length === 0 ? (
+                          <div className="py-6 text-center text-[10px] text-gray-300 font-bold uppercase tracking-widest">Section Empty</div>
+                        ) : (
+                          sr.exerciseItems.map((item, idx) => (
+                            <CompactExerciseRow 
+                              key={`${item.exerciseId}-${idx}`} 
+                              exerciseId={item.exerciseId} 
+                              exercises={exercises} 
+                              categories={categories} 
+                              routineId={routine.id}
+                              subRoutineId={sr.id}
+                              onRemove={() => toggleExerciseInRoutine(routine.id, item.exerciseId, sr.id)} 
+                            />
+                          ))
+                        )}
+                        <button onClick={() => setSelectorTarget({ rid: routine.id, srid: sr.id })} className="w-full flex items-center justify-center gap-2 py-3 text-[9px] font-black uppercase tracking-[0.2em] text-blue-400 hover:bg-blue-50/50 border-t border-gray-50">
                           <Plus size={12} /> Add to Section
                         </button>
                       </div>
