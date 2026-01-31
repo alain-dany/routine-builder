@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -14,7 +14,8 @@ import {
   Play,
   ArrowLeft,
   ArrowRight,
-  Video
+  Video,
+  Zap
 } from 'lucide-react';
 import { Routine, Exercise, Category, ExerciseItem, SubRoutine } from '../types.ts';
 
@@ -43,10 +44,25 @@ const FocusMode: React.FC<{
   categories: Category[];
   onClose: () => void;
 }> = ({ routine, exercises, categories, onClose }) => {
-  const sequence = [
-    ...routine.exerciseItems.map(item => ({ ...item, section: 'Main' })),
-    ...routine.subRoutines.flatMap(sr => sr.exerciseItems.map(item => ({ ...item, section: sr.name })))
-  ];
+  // Flatten routine into a sequence of steps including section title screens
+  const sequence = useMemo(() => {
+    const steps: any[] = [];
+    
+    if (routine.exerciseItems.length > 0) {
+      steps.push(...routine.exerciseItems.map(item => ({ ...item, type: 'exercise', section: 'Main' })));
+    }
+
+    routine.subRoutines.forEach(sr => {
+      if (sr.exerciseItems.length > 0) {
+        // Add a title screen for the subsection
+        steps.push({ type: 'header', name: sr.name });
+        // Add exercises in that subsection
+        steps.push(...sr.exerciseItems.map(item => ({ ...item, type: 'exercise', section: sr.name })));
+      }
+    });
+
+    return steps;
+  }, [routine]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
@@ -75,8 +91,9 @@ const FocusMode: React.FC<{
     setTouchStart(null);
   };
 
-  const currentItem = sequence[currentIndex];
-  const ex = exercises.find(e => e.id === currentItem?.exerciseId);
+  const currentStep = sequence[currentIndex];
+  const isHeader = currentStep?.type === 'header';
+  const ex = !isHeader ? exercises.find(e => e.id === currentStep?.exerciseId) : null;
   const embedUrl = ex?.videoUrl ? getYoutubeEmbedUrl(ex.videoUrl) : null;
 
   if (sequence.length === 0) return (
@@ -103,47 +120,71 @@ const FocusMode: React.FC<{
         <button onClick={onClose} className="w-14 h-14 flex items-center justify-center bg-gray-50 hover:bg-gray-100 rounded-full text-gray-400 transition-colors shadow-sm"><X size={32} /></button>
       </header>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 overflow-y-auto text-center space-y-10 sm:space-y-12 bg-gradient-to-b from-white to-gray-50">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 overflow-y-auto text-center bg-gradient-to-b from-white to-gray-50">
         
-        {/* Line 1: The Name */}
-        <div className="space-y-3 animate-in fade-in zoom-in-95 duration-500 max-w-4xl">
-           <p className="text-[12px] font-black text-blue-400 uppercase tracking-[0.3em] mb-2">{currentItem.section}</p>
-           <h1 className="text-5xl sm:text-7xl font-black text-gray-900 leading-[1.1] tracking-tight">
-            {ex?.title}
-          </h1>
-        </div>
+        {isHeader ? (
+          /* Transition Screen for Subsections */
+          <div className="space-y-6 animate-in zoom-in-95 duration-700 flex flex-col items-center">
+             <div className="w-24 h-24 bg-blue-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl shadow-blue-200 mb-4">
+                <Zap size={48} fill="currentColor" />
+             </div>
+             <p className="text-blue-500 font-black uppercase tracking-[0.3em] text-sm">Entering Subsection</p>
+             <h1 className="text-5xl sm:text-7xl font-black text-gray-900 leading-tight">
+               {currentStep.name}
+             </h1>
+             <p className="text-gray-400 font-medium max-w-xs pt-4">Get ready for the next phase of your workout.</p>
+          </div>
+        ) : (
+          /* Main Exercise Focus View */
+          <div className="w-full flex flex-col items-center space-y-10 sm:space-y-12">
+            {/* Subsection Marker (Line 0) */}
+            <div className="animate-in fade-in duration-500">
+               <span className="inline-block text-[12px] font-black text-blue-500 bg-blue-50 px-5 py-2 rounded-full uppercase tracking-[0.2em]">
+                 {currentStep.section}
+               </span>
+            </div>
 
-        {/* Line 2: The Comment / Description (No fallback text) */}
-        {ex?.description && (
-          <div className="max-w-3xl w-full animate-in fade-in slide-in-from-top-4 delay-150 duration-500">
-            <div className="p-10 bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100/50">
-              <p className="text-2xl sm:text-3xl text-gray-700 leading-relaxed font-semibold">
-                {ex.description}
-              </p>
+            {/* Exercise Title (Line 1) */}
+            <div className="animate-in fade-in zoom-in-95 duration-500 max-w-4xl">
+              <h1 className="text-4xl sm:text-6xl font-black text-gray-900 leading-[1.15] tracking-tight">
+                {ex?.title}
+              </h1>
+            </div>
+
+            {/* Comment / Description (Line 2) */}
+            {ex?.description && (
+              <div className="max-w-3xl w-full animate-in fade-in slide-in-from-top-4 delay-150 duration-500">
+                <div className="p-8 sm:p-10 bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100/50">
+                  <p className="text-xl sm:text-2xl text-gray-700 leading-relaxed font-semibold">
+                    {ex.description}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Video Button (Line 3) */}
+            {embedUrl && (
+              <div className="animate-in fade-in slide-in-from-top-4 delay-300 duration-500">
+                <button 
+                  onClick={() => setShowVideo(true)}
+                  className="flex items-center gap-4 px-10 py-5 bg-gray-900 text-white rounded-[2rem] font-black uppercase tracking-[0.15em] hover:scale-105 transition-all shadow-2xl shadow-gray-900/20 active:scale-95"
+                >
+                  <Video size={24} /> Watch Demonstration
+                </button>
+              </div>
+            )}
+
+            {/* Categories (Line 4) */}
+            <div className="flex flex-wrap justify-center gap-3 animate-in fade-in delay-500 duration-500">
+              {ex?.categories.map(cat => (
+                <span key={cat} className={`px-6 py-2 rounded-full text-[12px] font-black uppercase tracking-[0.15em] text-white shadow-lg ${categories.find(c => c.name === cat)?.color || 'bg-gray-400'}`}>
+                  {cat}
+                </span>
+              ))}
             </div>
           </div>
         )}
-
-        {/* Line 3: The Video Button */}
-        {embedUrl && (
-          <div className="animate-in fade-in slide-in-from-top-4 delay-300 duration-500">
-            <button 
-              onClick={() => setShowVideo(true)}
-              className="flex items-center gap-4 px-10 py-5 bg-gray-900 text-white rounded-[2rem] font-black uppercase tracking-[0.15em] hover:scale-105 transition-all shadow-2xl shadow-gray-900/20 active:scale-95"
-            >
-              <Video size={24} /> Watch Demonstration
-            </button>
-          </div>
-        )}
-
-        {/* Line 4: The Categories */}
-        <div className="flex flex-wrap justify-center gap-3 animate-in fade-in delay-500 duration-500">
-          {ex?.categories.map(cat => (
-            <span key={cat} className={`px-6 py-2 rounded-full text-[12px] font-black uppercase tracking-[0.15em] text-white shadow-lg ${categories.find(c => c.name === cat)?.color || 'bg-gray-400'}`}>
-              {cat}
-            </span>
-          ))}
-        </div>
       </div>
 
       <footer className="p-8 sm:p-10 bg-white border-t flex gap-6 shrink-0 shadow-[0_-15px_50px_rgba(0,0,0,0.04)]">
@@ -156,10 +197,9 @@ const FocusMode: React.FC<{
         </button>
         <button 
           onClick={next} 
-          disabled={currentIndex === sequence.length - 1} 
-          className="flex-[2.5] py-6 bg-blue-600 text-white rounded-[2.5rem] font-black uppercase tracking-widest disabled:opacity-30 transition-all shadow-2xl shadow-blue-500/20 flex items-center justify-center gap-3 active:scale-[0.98]"
+          className="flex-[2.5] py-6 bg-blue-600 text-white rounded-[2.5rem] font-black uppercase tracking-widest transition-all shadow-2xl shadow-blue-500/20 flex items-center justify-center gap-3 active:scale-[0.98]"
         >
-          {currentIndex === sequence.length - 1 ? "Complete Workout" : "Next Exercise"} <ArrowRight size={28} />
+          {currentIndex === sequence.length - 1 ? "Complete Workout" : (isHeader ? "Start Section" : "Next Exercise")} <ArrowRight size={28} />
         </button>
       </footer>
 
@@ -278,19 +318,20 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
     e.stopPropagation();
     setDragOverTarget(null);
 
-    const exerciseId = parseInt(e.dataTransfer.getData('exerciseId'));
-    const sourceRid = e.dataTransfer.getData('sourceRoutineId') ? parseInt(e.dataTransfer.getData('sourceRoutineId')) : null;
-    const sourceSrid = e.dataTransfer.getData('sourceSubRoutineId') ? parseInt(e.dataTransfer.getData('sourceSubRoutineId')) : null;
+    const exerciseIdString = e.dataTransfer.getData('exerciseId');
+    const exerciseId = parseInt(exerciseIdString);
+    const sourceRidString = e.dataTransfer.getData('sourceRoutineId');
+    const sourceRid = sourceRidString ? parseInt(sourceRidString) : null;
+    const sourceSridString = e.dataTransfer.getData('sourceSubRoutineId');
+    const sourceSrid = sourceSridString ? parseInt(sourceSridString) : null;
     const sourceIndexString = e.dataTransfer.getData('sourceIndex');
     const sourceIndex = sourceIndexString !== "" ? parseInt(sourceIndexString) : null;
 
     if (isNaN(exerciseId)) return;
 
     setRoutines(prev => {
-      // 1. Create a deep clone to work with
       const next = JSON.parse(JSON.stringify(prev));
 
-      // 2. Remove the exercise from its source position
       if (sourceRid !== null) {
         const sourceRoutine = next.find((r: Routine) => r.id === sourceRid);
         if (sourceRoutine) {
@@ -307,7 +348,6 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
         }
       }
 
-      // 3. Add the exercise to its destination position
       const destRoutine = next.find((r: Routine) => r.id === destRid);
       if (destRoutine) {
         if (destSrid !== undefined) {
@@ -315,7 +355,6 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
           if (destSR) {
             const idx = destIndex !== undefined ? destIndex : destSR.exerciseItems.length;
             destSR.exerciseItems.splice(idx, 0, { exerciseId });
-            // Dedup items within the same sub-routine list if necessary, but keep order
             destSR.exerciseItems = destSR.exerciseItems.filter((item: any, i: number) => 
               destSR.exerciseItems.findIndex((obj: any) => obj.exerciseId === item.exerciseId) === i
             );
@@ -323,7 +362,6 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
         } else {
           const idx = destIndex !== undefined ? destIndex : destRoutine.exerciseItems.length;
           destRoutine.exerciseItems.splice(idx, 0, { exerciseId });
-          // Dedup items within the same main list if necessary, but keep order
           destRoutine.exerciseItems = destRoutine.exerciseItems.filter((item: any, i: number) => 
             destRoutine.exerciseItems.findIndex((obj: any) => obj.exerciseId === item.exerciseId) === i
           );
