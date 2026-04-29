@@ -164,8 +164,8 @@ const FocusMode: React.FC<{
 
             {/* Comment / Description */}
             {ex?.description && (
-              <div className="max-w-2xl w-full animate-in fade-in slide-in-from-top-4 delay-150 duration-500">
-                <div className="p-6 sm:p-8 bg-white rounded-[2rem] shadow-xl shadow-gray-200/40 border border-gray-100/50">
+              <div className="max-w-4xl w-full animate-in fade-in slide-in-from-top-4 delay-150 duration-500">
+                <div className="p-6 sm:p-8 bg-white rounded-[2rem] shadow-xl shadow-gray-200/40 border border-gray-100/50 text-left">
                   <p className="text-lg sm:text-xl text-gray-700 leading-relaxed font-semibold whitespace-pre-wrap">
                     {ex.description}
                   </p>
