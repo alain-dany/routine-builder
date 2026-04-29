@@ -157,7 +157,7 @@ const FocusMode: React.FC<{
 
             {/* Exercise Title */}
             <div className="animate-in fade-in zoom-in-95 duration-500 max-w-4xl">
-              <h1 className="text-3xl sm:text-5xl font-black text-gray-900 leading-[1.2] tracking-tight">
+              <h1 className="text-2xl sm:text-5xl font-black text-gray-900 leading-[1.2] tracking-tight">
                 {ex?.title}
               </h1>
             </div>
@@ -165,8 +165,8 @@ const FocusMode: React.FC<{
             {/* Comment / Description */}
             {ex?.description && (
               <div className="max-w-4xl w-full animate-in fade-in slide-in-from-top-4 delay-150 duration-500">
-                <div className="p-6 sm:p-8 bg-white rounded-[2rem] shadow-xl shadow-gray-200/40 border border-gray-100/50 text-left">
-                  <p className="text-lg sm:text-xl text-gray-700 leading-relaxed font-semibold whitespace-pre-wrap">
+                <div className="p-4 sm:p-8 bg-white rounded-2xl sm:rounded-[2rem] shadow-xl shadow-gray-200/40 border border-gray-100/50 text-left">
+                  <p className="text-sm sm:text-lg text-gray-700 leading-snug sm:leading-relaxed font-semibold whitespace-pre-wrap">
                     {ex.description}
                   </p>
                 </div>
