@@ -109,97 +109,113 @@ const FocusMode: React.FC<{
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <header className="px-6 py-6 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-md z-10 border-b border-gray-100">
+      {/* Progress Bar */}
+      <div className="absolute top-0 left-0 right-0 h-1.5 flex gap-1 bg-gray-100 z-[110]">
+        {sequence.map((_, idx) => (
+          <div 
+            key={idx} 
+            className={`h-full flex-1 transition-all duration-500 ${idx <= currentIndex ? 'bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.3)]' : 'bg-gray-200'}`}
+          />
+        ))}
+      </div>
+
+      <header className="px-6 py-4 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-md z-10 border-b border-gray-100 mt-1.5">
         <div className="flex flex-col">
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">{routine.name}</p>
+          <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-0.5">{routine.name}</p>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
-            <p className="text-sm font-black text-blue-600 uppercase tracking-widest">Step {currentIndex + 1} of {sequence.length}</p>
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+            <p className="text-xs font-black text-blue-600 uppercase tracking-widest">Step {currentIndex + 1} of {sequence.length}</p>
           </div>
         </div>
-        <button onClick={onClose} className="w-14 h-14 flex items-center justify-center bg-gray-50 hover:bg-gray-100 rounded-full text-gray-400 transition-colors shadow-sm"><X size={32} /></button>
+        <button onClick={onClose} className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-gray-100 rounded-full text-gray-400 transition-colors shadow-sm"><X size={20} /></button>
       </header>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col items-center justify-center px-8 py-10 overflow-y-auto text-center bg-gradient-to-b from-white to-gray-50">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 overflow-y-auto text-center bg-gradient-to-b from-white to-gray-50">
         
         {isHeader ? (
           /* Transition Screen for Subsections */
-          <div className="space-y-6 animate-in zoom-in-95 duration-700 flex flex-col items-center">
-             <div className="w-24 h-24 bg-blue-600 rounded-[2rem] flex items-center justify-center text-white shadow-2xl shadow-blue-200 mb-4">
-                <Zap size={48} fill="currentColor" />
+          <div className="space-y-4 animate-in zoom-in-95 duration-700 flex flex-col items-center">
+             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200 mb-2">
+                <Zap size={32} fill="currentColor" />
              </div>
-             <p className="text-blue-500 font-black uppercase tracking-[0.3em] text-sm">Entering Subsection</p>
-             <h1 className="text-5xl sm:text-7xl font-black text-gray-900 leading-tight">
+             <p className="text-blue-500 font-black uppercase tracking-[0.3em] text-[10px]">Entering Subsection</p>
+             <h1 className="text-3xl sm:text-5xl font-black text-gray-900 leading-tight">
                {currentStep.name}
              </h1>
-             <p className="text-gray-400 font-medium max-w-xs pt-4">Get ready for the next phase of your workout.</p>
+             <p className="text-gray-400 font-medium text-sm max-w-xs pt-2">Get ready for the next phase of your workout.</p>
           </div>
         ) : (
           /* Main Exercise Focus View */
-          <div className="w-full flex flex-col items-center space-y-10 sm:space-y-12">
-            {/* Subsection Marker (Line 0) */}
+          <div className="w-full flex flex-col items-center space-y-6 sm:space-y-8">
+            {/* Subsection Marker */}
             <div className="animate-in fade-in duration-500">
-               <span className="inline-block text-[12px] font-black text-blue-500 bg-blue-50 px-5 py-2 rounded-full uppercase tracking-[0.2em]">
+               <span className="inline-block text-[10px] font-black text-blue-500 bg-blue-50 px-4 py-1.5 rounded-full uppercase tracking-[0.2em]">
                  {currentStep.section}
                </span>
             </div>
 
-            {/* Exercise Title (Line 1) */}
+            {/* Exercise Title */}
             <div className="animate-in fade-in zoom-in-95 duration-500 max-w-4xl">
-              <h1 className="text-4xl sm:text-6xl font-black text-gray-900 leading-[1.15] tracking-tight">
+              <h1 className="text-3xl sm:text-5xl font-black text-gray-900 leading-[1.2] tracking-tight">
                 {ex?.title}
               </h1>
             </div>
 
-            {/* Comment / Description (Line 2) */}
+            {/* Comment / Description */}
             {ex?.description && (
-              <div className="max-w-3xl w-full animate-in fade-in slide-in-from-top-4 delay-150 duration-500">
-                <div className="p-8 sm:p-10 bg-white rounded-[3rem] shadow-2xl shadow-gray-200/50 border border-gray-100/50">
-                  <p className="text-xl sm:text-2xl text-gray-700 leading-relaxed font-semibold">
+              <div className="max-w-2xl w-full animate-in fade-in slide-in-from-top-4 delay-150 duration-500">
+                <div className="p-6 sm:p-8 bg-white rounded-[2rem] shadow-xl shadow-gray-200/40 border border-gray-100/50">
+                  <p className="text-lg sm:text-xl text-gray-700 leading-relaxed font-semibold whitespace-pre-wrap">
                     {ex.description}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Video Button (Line 3) */}
+            {/* Video Button */}
             {embedUrl && (
               <div className="animate-in fade-in slide-in-from-top-4 delay-300 duration-500">
                 <button 
                   onClick={() => setShowVideo(true)}
-                  className="flex items-center gap-4 px-10 py-5 bg-gray-900 text-white rounded-[2rem] font-black uppercase tracking-[0.15em] hover:scale-105 transition-all shadow-2xl shadow-gray-900/20 active:scale-95"
+                  className="flex items-center gap-3 px-8 py-3.5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-[0.15em] hover:scale-105 transition-all shadow-xl shadow-gray-900/20 active:scale-95 text-xs"
                 >
-                  <Video size={24} /> Watch Demonstration
+                  <Video size={18} /> Watch Video
                 </button>
               </div>
             )}
 
-            {/* Categories (Line 4) */}
-            <div className="flex flex-wrap justify-center gap-3 animate-in fade-in delay-500 duration-500">
-              {ex?.categories.map(cat => (
-                <span key={cat} className={`px-6 py-2 rounded-full text-[12px] font-black uppercase tracking-[0.15em] text-white shadow-lg ${categories.find(c => c.name === cat)?.color || 'bg-gray-400'}`}>
-                  {cat}
-                </span>
-              ))}
+            <div className="flex flex-wrap justify-center gap-2 animate-in fade-in delay-500 duration-500">
+              {ex?.categories.map(cat => {
+                const cInfo = categories.find(c => c.name === cat);
+                return (
+                  <span 
+                    key={cat} 
+                    className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] text-white shadow-md"
+                    style={{ backgroundColor: cInfo?.color || '#94a3b8' }}
+                  >
+                    {cat}
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
       </div>
 
-      <footer className="p-8 sm:p-10 bg-white border-t flex gap-6 shrink-0 shadow-[0_-15px_50px_rgba(0,0,0,0.04)]">
+      <footer className="p-6 sm:p-8 bg-white border-t flex gap-4 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.03)]">
         <button 
           onClick={prev} 
           disabled={currentIndex === 0} 
-          className="flex-1 py-6 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-[2.5rem] font-black uppercase tracking-widest disabled:opacity-30 transition-all flex items-center justify-center gap-3 active:scale-95"
+          className="flex-1 py-4 bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600 rounded-2xl font-black uppercase tracking-widest disabled:opacity-30 transition-all flex items-center justify-center gap-2 active:scale-95 text-sm"
         >
-          <ArrowLeft size={28} /> <span className="hidden sm:inline">Back</span>
+          <ArrowLeft size={20} /> <span className="hidden sm:inline">Back</span>
         </button>
         <button 
           onClick={next} 
-          className="flex-[2.5] py-6 bg-blue-600 text-white rounded-[2.5rem] font-black uppercase tracking-widest transition-all shadow-2xl shadow-blue-500/20 flex items-center justify-center gap-3 active:scale-[0.98]"
+          className="flex-[2.5] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-[0.98] text-sm"
         >
-          {currentIndex === sequence.length - 1 ? "Complete Workout" : (isHeader ? "Start Section" : "Next Exercise")} <ArrowRight size={28} />
+          {currentIndex === sequence.length - 1 ? "Finish" : (isHeader ? "Start Section" : "Next Exercise")} <ArrowRight size={20} />
         </button>
       </footer>
 
@@ -275,14 +291,23 @@ const CompactExerciseRow: React.FC<{
 
           <div className="flex flex-1 flex-col sm:flex-row sm:items-center gap-2 w-full">
             <div className="flex flex-wrap gap-1 shrink-0">
-              {(ex.categories || []).map(cat => (
-                <span key={cat} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider text-white ${categories.find(c => c.name === cat)?.color || 'bg-gray-400'}`}>{cat}</span>
-              ))}
+              {(ex.categories || []).map(cat => {
+                const cInfo = categories.find(c => c.name === cat);
+                return (
+                  <span 
+                    key={cat} 
+                    className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider text-white shadow-sm"
+                    style={{ backgroundColor: cInfo?.color || '#94a3b8' }}
+                  >
+                    {cat}
+                  </span>
+                );
+              })}
             </div>
             
             <div className="flex-1 flex items-center justify-between gap-2">
               {ex.description && (
-                <p className="text-[11px] text-gray-500 line-clamp-1 italic flex-1 leading-tight">{ex.description}</p>
+                <p className="text-[11px] text-gray-500 line-clamp-1 italic flex-1 leading-tight whitespace-pre-wrap">{ex.description}</p>
               )}
               
               <div className="flex items-center gap-1 shrink-0 ml-auto">
@@ -608,7 +633,16 @@ const ExerciseSelectorModal: React.FC<{
               >
                 <div className="flex items-center gap-4">
                   <div className="flex gap-0.5 shrink-0">
-                    {(ex.categories || []).map(c => <div key={c} className={`w-2 h-2 rounded-full ${categories.find(ci => ci.name === c)?.color || 'bg-gray-400'}`} />)}
+                    {(ex.categories || []).map(c => {
+                      const cInfo = categories.find(ci => ci.name === c);
+                      return (
+                        <div 
+                          key={c} 
+                          className="w-2 h-2 rounded-full shadow-sm" 
+                          style={{ backgroundColor: cInfo?.color || '#94a3b8' }}
+                        />
+                      );
+                    })}
                   </div>
                   <p className="text-sm font-bold text-gray-800">{ex.title}</p>
                 </div>

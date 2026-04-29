@@ -1,5 +1,6 @@
 {
   "name": "Routine Builder",
   "description": "A professional tool for managing exercises and routines with a sleek, retractable library and integrated video player.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

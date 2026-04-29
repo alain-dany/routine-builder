@@ -176,7 +176,7 @@ export default function App() {
             <div className={`flex h-full relative z-20 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-full lg:w-1/3 min-w-[320px]' : 'w-0 lg:w-10 bg-white border-r border-gray-200'}`}>
               <aside className={`h-full w-full bg-white transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100 border-r border-gray-200' : 'opacity-0 pointer-events-none'}`}>
                 <div className="w-full h-full min-w-[320px]">
-                  <Sidebar exercises={exercises} setExercises={setExercises} categories={categories} />
+                  <Sidebar exercises={exercises} setExercises={setExercises} categories={categories} setCategories={setCategories} routines={routines} />
                 </div>
               </aside>
               <div className={`absolute top-4 z-50 transition-all duration-300 ${isSidebarOpen ? '-right-4' : 'left-1'}`}>
@@ -209,6 +209,7 @@ export default function App() {
                 categories={categories} 
                 setCategories={setCategories}
                 onPlayVideo={setActiveVideoUrl} 
+                routines={routines}
               />
             </div>
           </div>
