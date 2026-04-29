@@ -128,9 +128,9 @@ export default function App() {
           <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl mr-2 sm:mr-4 overflow-x-auto max-w-[50vw]">
             {[
               { id: 'main', icon: LayoutDashboard, label: 'Builder' },
-              { id: 'calendar', icon: CalendarIcon, label: 'Calendar' },
               { id: 'exercises', icon: BookOpen, label: 'Library' },
-              { id: 'data', icon: Database, label: 'Data' }
+              { id: 'data', icon: Database, label: 'Data' },
+              { id: 'calendar', icon: CalendarIcon, label: 'Calendar' }
             ].map((nav) => (
               <button
                 key={nav.id}
