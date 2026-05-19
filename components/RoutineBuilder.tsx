@@ -15,7 +15,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Video,
-  Zap
+  Zap,
+  Copy
 } from 'lucide-react';
 import { Routine, Exercise, Category, ExerciseItem, SubRoutine } from '../types.ts';
 
@@ -337,6 +338,16 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
   const updateRoutine = (id: number, updates: Partial<Routine>) => {
     setRoutines(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
   };
+  
+  const duplicateRoutine = (routine: Routine) => {
+    const newRoutine: Routine = {
+      ...JSON.parse(JSON.stringify(routine)),
+      id: Date.now(),
+      name: `${routine.name} (Copy)`,
+      isExpanded: true
+    };
+    setRoutines([newRoutine, ...routines]);
+  };
 
   const handleExerciseDrop = (e: React.DragEvent, destRid: number, destSrid?: number, destIndex?: number) => {
     e.preventDefault();
@@ -476,6 +487,13 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
                   title="Add Section"
                 >
                   <PlusCircle size={20} />
+                </button>
+                <button 
+                  onClick={() => duplicateRoutine(routine)}
+                  className="p-2 hover:bg-gray-100 text-gray-500 rounded-xl transition-colors" 
+                  title="Duplicate Routine"
+                >
+                  <Copy size={18} />
                 </button>
                 <button onClick={() => setRoutines(routines.filter(r => r.id !== routine.id))} className="p-2 hover:bg-red-50 text-red-500 rounded-xl transition-colors" title="Delete"><Trash2 size={20} /></button>
               </div>
