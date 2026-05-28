@@ -24,6 +24,7 @@ export interface SubRoutine {
   name: string;
   exerciseItems: ExerciseItem[];
   isExpanded?: boolean;
+  inactive?: boolean;
 }
 
 export interface RoutineSchedule {

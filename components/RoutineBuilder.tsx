@@ -16,7 +16,11 @@ import {
   ArrowRight,
   Video,
   Zap,
-  Copy
+  Copy,
+  Eye,
+  EyeOff,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { Routine, Exercise, Category, ExerciseItem, SubRoutine } from '../types.ts';
 
@@ -54,6 +58,8 @@ const FocusMode: React.FC<{
     }
 
     routine.subRoutines.forEach(sr => {
+      // Skip inactive sections so they grey out and do not show up when pressed play
+      if (sr.inactive) return;
       if (sr.exerciseItems.length > 0) {
         // Add a title screen for the subsection
         steps.push({ type: 'header', name: sr.name });
@@ -81,6 +87,20 @@ const FocusMode: React.FC<{
       setShowVideo(false);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        prev();
+      } else if (e.key === 'ArrowRight') {
+        next();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [currentIndex, sequence.length]);
 
   const handleTouchStart = (e: React.TouchEvent) => setTouchStart(e.targetTouches[0].clientX);
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -465,37 +485,47 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
             }}
             className={`bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden transition-all duration-200 ${draggedRoutineIndex === index ? 'opacity-40 scale-[0.98] border-blue-400 border-dashed bg-blue-50/10' : 'opacity-100'}`}
           >
-            <div className="flex items-center gap-2 p-4 bg-gray-50/30 border-b border-gray-100">
-              <div className="p-1.5 text-gray-300 hover:text-blue-500 cursor-grab active:cursor-grabbing transition-colors shrink-0">
-                <GripVertical size={20} />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50/30 border-b border-gray-100 gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="p-1.5 text-gray-300 hover:text-blue-500 cursor-grab active:cursor-grabbing transition-colors shrink-0">
+                  <GripVertical size={20} />
+                </div>
+                <button 
+                  onClick={() => updateRoutine(routine.id, { isExpanded: !routine.isExpanded })} 
+                  className="p-1 hover:bg-gray-200 rounded-lg text-gray-400 shrink-0"
+                >
+                  {routine.isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                </button>
+                <input 
+                  type="text" 
+                  value={routine.name} 
+                  onChange={(e) => updateRoutine(routine.id, { name: e.target.value })} 
+                  className="bg-transparent font-black text-gray-800 focus:outline-none flex-1 truncate text-lg min-w-0" 
+                />
               </div>
-              <button onClick={() => updateRoutine(routine.id, { isExpanded: !routine.isExpanded })} className="p-1 hover:bg-gray-200 rounded-lg text-gray-400">
-                {routine.isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-              </button>
-              <input type="text" value={routine.name} onChange={(e) => updateRoutine(routine.id, { name: e.target.value })} className="bg-transparent font-black text-gray-800 focus:outline-none flex-1 truncate text-lg" />
               
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 justify-end shrink-0 max-sm:w-full max-sm:border-t max-sm:border-gray-100 max-sm:pt-3">
                 <button 
                   onClick={() => setRoutineToPlay(routine)}
-                  className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md mr-1 active:scale-95"
+                  className="flex items-center gap-2 px-4 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md mr-1 active:scale-95 shrink-0"
                 >
                   <Play size={14} fill="currentColor" /> Play
                 </button>
                 <button 
                   onClick={() => updateRoutine(routine.id, { subRoutines: [...routine.subRoutines, { id: Date.now(), name: 'New Section', exerciseItems: [], isExpanded: true }] })} 
-                  className="p-2 hover:bg-blue-50 text-blue-500 rounded-xl transition-colors" 
+                  className="p-2 hover:bg-blue-50 text-blue-500 rounded-xl transition-colors shrink-0" 
                   title="Add Section"
                 >
                   <PlusCircle size={20} />
                 </button>
                 <button 
                   onClick={() => duplicateRoutine(routine)}
-                  className="p-2 hover:bg-gray-100 text-gray-500 rounded-xl transition-colors" 
+                  className="p-2 hover:bg-gray-100 text-gray-500 rounded-xl transition-colors shrink-0" 
                   title="Duplicate Routine"
                 >
                   <Copy size={18} />
                 </button>
-                <button onClick={() => setRoutines(routines.filter(r => r.id !== routine.id))} className="p-2 hover:bg-red-50 text-red-500 rounded-xl transition-colors" title="Delete"><Trash2 size={20} /></button>
+                <button onClick={() => setRoutines(routines.filter(r => r.id !== routine.id))} className="p-2 hover:bg-red-50 text-red-500 rounded-xl transition-colors shrink-0" title="Delete"><Trash2 size={20} /></button>
               </div>
             </div>
 
@@ -531,14 +561,101 @@ const RoutineBuilder: React.FC<RoutineBuilderProps> = ({ routines, setRoutines, 
                 {routine.subRoutines.map((sr) => (
                   <div 
                     key={sr.id} 
+                    draggable
+                    onDragStart={(e) => {
+                      e.stopPropagation();
+                      e.dataTransfer.setData('sectionMoveId', sr.id.toString());
+                      e.dataTransfer.setData('parentRoutineId', routine.id.toString());
+                    }}
                     onDragOver={(e) => { e.preventDefault(); setDragOverTarget({ rid: routine.id, srid: sr.id }); }}
                     onDragLeave={() => setDragOverTarget(null)}
-                    onDrop={(e) => handleExerciseDrop(e, routine.id, sr.id)}
-                    className={`bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden transition-all ${dragOverTarget?.rid === routine.id && dragOverTarget?.srid === sr.id ? 'ring-4 ring-blue-500/20 scale-[1.01] border-blue-200' : ''}`}
+                    onDrop={(e) => {
+                      setDragOverTarget(null);
+                      const sectionMoveId = e.dataTransfer.getData('sectionMoveId');
+                      const parentRoutineId = e.dataTransfer.getData('parentRoutineId');
+                      
+                      if (sectionMoveId && parentRoutineId === routine.id.toString()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const fromId = parseInt(sectionMoveId);
+                        const toId = sr.id;
+                        if (fromId !== toId) {
+                          const fromIdx = routine.subRoutines.findIndex(s => s.id === fromId);
+                          const toIdx = routine.subRoutines.findIndex(s => s.id === toId);
+                          const newSubRoutines = [...routine.subRoutines];
+                          const [moved] = newSubRoutines.splice(fromIdx, 1);
+                          newSubRoutines.splice(toIdx, 0, moved);
+                          updateRoutine(routine.id, { subRoutines: newSubRoutines });
+                        }
+                      } else {
+                        handleExerciseDrop(e, routine.id, sr.id);
+                      }
+                    }}
+                    className={`bg-white border rounded-3xl shadow-sm overflow-hidden transition-all duration-200 ${sr.inactive ? 'opacity-40 grayscale-[40%] bg-gray-50/50 border-dashed border-gray-300' : 'border-gray-100'} ${dragOverTarget?.rid === routine.id && dragOverTarget?.srid === sr.id ? 'ring-4 ring-blue-500/20 scale-[1.01] border-blue-200' : ''}`}
                   >
                     <div className="flex items-center gap-2 p-3 px-4 bg-blue-50/40 border-b border-blue-100">
-                      <input type="text" value={sr.name} onChange={(e) => updateRoutine(routine.id, { subRoutines: routine.subRoutines.map(s => s.id === sr.id ? { ...s, name: e.target.value } : s) })} className="bg-transparent text-sm font-black text-blue-900 focus:outline-none flex-1 truncate" />
-                      <button onClick={() => updateRoutine(routine.id, { subRoutines: routine.subRoutines.filter(s => s.id !== sr.id) })} className="p-1.5 hover:bg-red-100 rounded-lg text-red-500 transition-colors"><Trash2 size={16} /></button>
+                      <div className="p-1 text-gray-300 hover:text-blue-500 cursor-grab active:cursor-grabbing transition-colors shrink-0">
+                        <GripVertical size={14} />
+                      </div>
+                      <input 
+                        type="text" 
+                        value={sr.name} 
+                        onChange={(e) => updateRoutine(routine.id, { subRoutines: routine.subRoutines.map(s => s.id === sr.id ? { ...s, name: e.target.value } : s) })} 
+                        className="bg-transparent text-sm font-black text-blue-900 focus:outline-none flex-1 truncate" 
+                      />
+                      
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => {
+                            const sectionIndex = routine.subRoutines.findIndex(s => s.id === sr.id);
+                            if (sectionIndex > 0) {
+                              const newSRs = [...routine.subRoutines];
+                              const [moved] = newSRs.splice(sectionIndex, 1);
+                              newSRs.splice(sectionIndex - 1, 0, moved);
+                              updateRoutine(routine.id, { subRoutines: newSRs });
+                            }
+                          }}
+                          disabled={routine.subRoutines.findIndex(s => s.id === sr.id) === 0}
+                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-white rounded-lg transition-colors disabled:opacity-20 disabled:pointer-events-none"
+                          title="Move Section Up"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const sectionIndex = routine.subRoutines.findIndex(s => s.id === sr.id);
+                            if (sectionIndex < routine.subRoutines.length - 1) {
+                              const newSRs = [...routine.subRoutines];
+                              const [moved] = newSRs.splice(sectionIndex, 1);
+                              newSRs.splice(sectionIndex + 1, 0, moved);
+                              updateRoutine(routine.id, { subRoutines: newSRs });
+                            }
+                          }}
+                          disabled={routine.subRoutines.findIndex(s => s.id === sr.id) === routine.subRoutines.length - 1}
+                          className="p-1 text-gray-400 hover:text-blue-600 hover:bg-white rounded-lg transition-colors disabled:opacity-20 disabled:pointer-events-none"
+                          title="Move Section Down"
+                        >
+                          <ArrowDown size={14} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            updateRoutine(routine.id, {
+                              subRoutines: routine.subRoutines.map(s => s.id === sr.id ? { ...s, inactive: !s.inactive } : s)
+                            });
+                          }} 
+                          className={`p-1.5 rounded-lg transition-colors ${sr.inactive ? 'text-gray-400 hover:text-blue-600 hover:bg-white' : 'text-blue-600 hover:text-gray-400 hover:bg-white'}`}
+                          title={sr.inactive ? "Activate Section" : "Deactivate Section"}
+                        >
+                          {sr.inactive ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                        <button 
+                          onClick={() => updateRoutine(routine.id, { subRoutines: routine.subRoutines.filter(s => s.id !== sr.id) })} 
+                          className="p-1.5 hover:bg-red-100 rounded-lg text-red-500 transition-colors"
+                          title="Delete Section"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
                     <div>
                       {sr.exerciseItems.length === 0 ? (
