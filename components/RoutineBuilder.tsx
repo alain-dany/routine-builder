@@ -79,6 +79,8 @@ const FocusMode: React.FC<{
     if (currentIndex < sequence.length - 1) {
       setCurrentIndex(prev => prev + 1);
       setShowVideo(false);
+    } else {
+      onClose();
     }
   };
   const prev = () => {
