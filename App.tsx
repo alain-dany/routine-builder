@@ -13,7 +13,8 @@ import {
   Monitor,
   RefreshCw,
   Loader2,
-  HardDrive
+  HardDrive,
+  ExternalLink
 } from 'lucide-react';
 import { Exercise, Routine, Category, ViewType, User, ScheduledRoutine } from './types.ts';
 import { DEFAULT_CATEGORIES } from './constants.tsx';
@@ -234,13 +235,34 @@ export default function App() {
       </main>
 
       {activeVideoUrl && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden relative aspect-video">
-             <button onClick={() => setActiveVideoUrl(null)} className="absolute top-4 right-4 z-20 p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-colors shadow-lg">
-               <X size={24} />
-             </button>
-             <iframe src={getYoutubeEmbedUrl(activeVideoUrl) || ''} className="w-full h-full" frameBorder="0" allowFullScreen />
-          </div>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm" onClick={() => setActiveVideoUrl(null)}>
+          {getYoutubeEmbedUrl(activeVideoUrl) ? (
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden relative aspect-video" onClick={(e) => e.stopPropagation()}>
+               <button onClick={() => setActiveVideoUrl(null)} className="absolute top-4 right-4 z-20 p-2 bg-black/50 hover:bg-black/80 text-white rounded-full transition-colors shadow-lg">
+                 <X size={24} />
+               </button>
+               <iframe src={getYoutubeEmbedUrl(activeVideoUrl) || ''} className="w-full h-full" frameBorder="0" allowFullScreen />
+            </div>
+          ) : (
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden relative p-8 text-center space-y-4 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+               <button onClick={() => setActiveVideoUrl(null)} className="absolute top-4 right-4 p-2 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full transition-colors">
+                 <X size={20} />
+               </button>
+               <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto">
+                 <ExternalLink size={24} />
+               </div>
+               <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">External Resource</h3>
+               <p className="text-sm text-gray-500">This exercise links to an external website or training guide:</p>
+               <a 
+                 href={activeVideoUrl} 
+                 target="_blank" 
+                 rel="noopener noreferrer"
+                 className="inline-flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-blue-100 break-all text-sm w-full justify-center"
+               >
+                 Open Link <ExternalLink size={16} />
+               </a>
+            </div>
+          )}
         </div>
       )}
     </div>

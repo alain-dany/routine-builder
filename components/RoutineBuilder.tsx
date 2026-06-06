@@ -20,7 +20,8 @@ import {
   Eye,
   EyeOff,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  ExternalLink
 } from 'lucide-react';
 import { Routine, Exercise, Category, ExerciseItem, SubRoutine } from '../types.ts';
 
@@ -186,12 +187,28 @@ const FocusMode: React.FC<{
             </div>
 
             {/* Comment / Description */}
-            {ex?.description && (
+            {(ex?.description || (ex?.videoUrl && !embedUrl)) && (
               <div className="max-w-4xl w-full animate-in fade-in slide-in-from-top-4 delay-150 duration-500">
                 <div className="p-4 sm:p-8 bg-white rounded-2xl sm:rounded-[2rem] shadow-xl shadow-gray-200/40 border border-gray-100/50 text-left">
-                  <p className="text-sm sm:text-lg text-gray-700 leading-snug sm:leading-relaxed font-semibold whitespace-pre-wrap">
-                    {ex.description}
-                  </p>
+                  {ex?.description && (
+                    <p className="text-sm sm:text-lg text-gray-700 leading-snug sm:leading-relaxed font-semibold whitespace-pre-wrap">
+                      {ex.description}
+                    </p>
+                  )}
+                  {ex?.videoUrl && !embedUrl && (
+                    <div className={ex?.description ? "mt-4 pt-4 border-t border-gray-100" : ""}>
+                      <span className="block text-xs font-black uppercase tracking-wider text-gray-400 mb-1.5">Reference Link</span>
+                      <a 
+                        href={ex.videoUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 text-sm sm:text-base font-bold underline decoration-2 underline-offset-4 hover:opacity-85 transition-opacity break-all"
+                      >
+                        <ExternalLink size={16} className="shrink-0" />
+                        {ex.videoUrl}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
